@@ -1,7 +1,8 @@
 package com.spglobal.coding.services;
 
-import com.spglobal.coding.producers.dto.BatchProcessRequest;
-import com.spglobal.coding.services.dto.BatchProcessResponse;
+import com.spglobal.coding.consumers.dto.GetPriceRecordsListResponse;
+import com.spglobal.coding.producers.dto.ChunkProcessRequest;
+import com.spglobal.coding.services.dto.ChunkProcessResponse;
 import com.spglobal.coding.services.model.PriceRecord;
 import com.spglobal.coding.utils.exceptions.RecordProcessingException;
 import com.spglobal.coding.utils.enums.InstrumentType;
@@ -21,21 +22,21 @@ public class InstrumentPriceService implements PriceService {
     protected static final Map<InstrumentType, Map<String, PriceRecord>> latestPrices = new ConcurrentHashMap<>();
 
     @Override
-    public BatchProcessResponse processChunk(BatchProcessRequest batchProcessRequest) {
+    public ChunkProcessResponse processChunk(ChunkProcessRequest chunkProcessRequest) {
         List<PriceRecord> failedRecords = new ArrayList<>();
 
-        logger.info("Processing Started for {} records in chunk from batchId {}", batchProcessRequest.priceRecordList().size(), batchProcessRequest.batchId());
-        for (PriceRecord priceRecord : batchProcessRequest.priceRecordList()) {
+        logger.info("Processing Started for {} records in chunk from batchId {}", chunkProcessRequest.priceRecordList().size(), chunkProcessRequest.batchId());
+        for (PriceRecord priceRecord : chunkProcessRequest.priceRecordList()) {
             try {
-                updateLatestPrice(batchProcessRequest.batchId(), priceRecord); // Process each record in the batch
+                updateLatestPrice(chunkProcessRequest.batchId(), priceRecord); // Process each record in the batch
             } catch (RecordProcessingException e) {
                 failedRecords.add(priceRecord); // Add the failed process to a list for future assessment
-                logger.error("Failed to process record for instrumentId: {} in batchId: {}. Error: {}", priceRecord.getId(), batchProcessRequest.batchId(), e.getMessage());
+                logger.error("Failed to process record for instrumentId: {} in batchId: {}. Error: {}", priceRecord.getId(), chunkProcessRequest.batchId(), e.getMessage());
             }
         }
 
-        logger.info("Chunk processing for batchId {} completed with {} failed records.", batchProcessRequest.batchId(), failedRecords.size());
-        return new BatchProcessResponse(failedRecords.isEmpty(), failedRecords);
+        logger.info("Chunk processing for batchId {} completed with {} failed records.", chunkProcessRequest.batchId(), failedRecords.size());
+        return new ChunkProcessResponse(failedRecords.isEmpty(), failedRecords);
     }
 
     @Override
@@ -108,7 +109,7 @@ public class InstrumentPriceService implements PriceService {
     }
 
     @Override
-    public List<PriceRecord> getPriceRecordsWithDuration(Duration duration) {
+    public GetPriceRecordsListResponse getPriceRecordsWithDuration(Duration duration) {
         // Get the threshold date-time, which is the current time minus the duration
         LocalDateTime threshold = LocalDateTime.now().minus(duration);
 

@@ -1,9 +1,7 @@
 package com.spglobal.coding.producers;
 
-import com.spglobal.coding.producers.dto.BatchProcessRequest;
 import com.spglobal.coding.producers.dto.PriceRecordBatch;
-import com.spglobal.coding.services.InstrumentPriceService;
-import com.spglobal.coding.services.dto.BatchProcessResponse;
+import com.spglobal.coding.services.dto.ChunkProcessResponse;
 import com.spglobal.coding.services.model.PriceRecord;
 import com.spglobal.coding.utils.ChunkProcessor;
 import com.spglobal.coding.utils.enums.BatchStatus;
@@ -13,8 +11,6 @@ import org.slf4j.LoggerFactory;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 
 /**
  * The InstrumentProducer class manages the lifecycle of price record batches.
@@ -38,7 +34,6 @@ public class InstrumentProducer implements Producer {
 
     private final ChunkProcessor chunkProcessor;
 
-    // TODO: Implement IOC using dependency injection to handle services
     public InstrumentProducer(ChunkProcessor chunkProcessor) {
         this.chunkProcessor = chunkProcessor;
     }
@@ -92,7 +87,7 @@ public class InstrumentProducer implements Producer {
             }
 
             List<PriceRecord> records = batch.getRecords();
-            CompletableFuture<BatchProcessResponse> batchProcessResponse = chunkProcessor.processBatch(batchId, records);
+            CompletableFuture<ChunkProcessResponse> batchProcessResponse = chunkProcessor.processBatch(batchId, records);
 
             // Handle the result of chunk processing
             batchProcessResponse.thenAccept(response -> {

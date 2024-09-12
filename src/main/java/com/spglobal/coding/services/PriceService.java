@@ -1,7 +1,8 @@
 package com.spglobal.coding.services;
 
-import com.spglobal.coding.producers.dto.BatchProcessRequest;
-import com.spglobal.coding.services.dto.BatchProcessResponse;
+import com.spglobal.coding.consumers.dto.GetPriceRecordsListResponse;
+import com.spglobal.coding.producers.dto.ChunkProcessRequest;
+import com.spglobal.coding.services.dto.ChunkProcessResponse;
 import com.spglobal.coding.services.model.PriceRecord;
 import com.spglobal.coding.utils.enums.InstrumentType;
 
@@ -11,7 +12,7 @@ import java.util.Optional;
 
 public interface PriceService {
 
-    BatchProcessResponse processChunk(BatchProcessRequest batchProcessRequest);
+    ChunkProcessResponse processChunk(ChunkProcessRequest chunkProcessRequest);
 
     void updateLatestPrice(String batchId, PriceRecord priceRecord);
 
@@ -25,7 +26,7 @@ public interface PriceService {
 
     List<PriceRecord> getPriceRecordsWithInstrumentType(InstrumentType instrumentType);
 
-    List<PriceRecord> getPriceRecordsWithDuration(Duration duration);
+    GetPriceRecordsListResponse getPriceRecordsWithDuration(Duration duration);
 
     void clearAllPrices();
 

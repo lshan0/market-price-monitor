@@ -4,6 +4,6 @@ import com.spglobal.coding.services.model.PriceRecord;
 
 import java.util.List;
 
-public record BatchProcessRequest(String batchId,
+public record ChunkProcessRequest(String batchId,
                                   List<PriceRecord> priceRecordList)
 { }

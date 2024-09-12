@@ -4,6 +4,6 @@ import com.spglobal.coding.services.model.PriceRecord;
 
 import java.util.List;
 
-public record BatchProcessResponse(boolean isSuccess,
+public record ChunkProcessResponse(boolean isSuccess,
                                    List<PriceRecord> failedRecords)
 { }

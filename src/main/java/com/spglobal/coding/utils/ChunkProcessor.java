@@ -1,8 +1,8 @@
 package com.spglobal.coding.utils;
 
-import com.spglobal.coding.producers.dto.BatchProcessRequest;
+import com.spglobal.coding.producers.dto.ChunkProcessRequest;
 import com.spglobal.coding.services.InstrumentPriceService;
-import com.spglobal.coding.services.dto.BatchProcessResponse;
+import com.spglobal.coding.services.dto.ChunkProcessResponse;
 import com.spglobal.coding.services.model.PriceRecord;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -26,14 +26,18 @@ public class ChunkProcessor {
         logger.info("ChunkProcessor initialized with a fixed thread pool of size: {}", Runtime.getRuntime().availableProcessors());
     }
 
-    public CompletableFuture<BatchProcessResponse> processBatch(String batchId, List<PriceRecord> allRecords) {
+    public CompletableFuture<ChunkProcessResponse> processBatch(String batchId, List<PriceRecord> allRecords) {
         // Split records into chunks
         List<List<PriceRecord>> chunks = partitionBatchIntoChunks(allRecords);
         logger.info("Partitioned batch with batchId {} into {} chunks", batchId, chunks.size());
 
         // Create a list of CompletableFuture for processing each chunk
-        List<CompletableFuture<BatchProcessResponse>> futures = chunks.stream()
-                .map(chunk -> CompletableFuture.supplyAsync(() -> processChunk(batchId, chunk), executorService))
+        List<CompletableFuture<ChunkProcessResponse>> futures = chunks.stream()
+                .map(chunk -> CompletableFuture.supplyAsync(() -> processChunk(batchId, chunk), executorService)
+                        .exceptionally(ex -> {
+                            logger.error("Exception occurred while processing chunk for batchId {}: {}", batchId, ex.getMessage());
+                            return new ChunkProcessResponse(false, chunk); // Handle the exception and return a response with the failed chunk
+                        }))
                 .toList();
 
         // Combine all futures into one CompletableFuture
@@ -47,23 +51,24 @@ public class ChunkProcessor {
 
                     // Return the BatchProcessResponse with the combined failed records
                     logger.info("Batch processing for batchId {} completed with {} failed records", batchId, allFailedRecords.size());
-                    return new BatchProcessResponse(allFailedRecords.isEmpty(), allFailedRecords);
+                    return new ChunkProcessResponse(allFailedRecords.isEmpty(), allFailedRecords);
                 });
     }
 
-    private BatchProcessResponse processChunk(String batchId, List<PriceRecord> chunk) {
+    private ChunkProcessResponse processChunk(String batchId, List<PriceRecord> chunk) {
         logger.info("Processing chunk for batchId {} with {} records", batchId, chunk.size());
         try {
-            return instrumentPriceService.processChunk(new BatchProcessRequest(batchId, chunk));
+            // Process the chunk and return the response
+            return instrumentPriceService.processChunk(new ChunkProcessRequest(batchId, chunk));
         } catch (Exception e) {
             logger.error("Exception occurred while processing chunk for batchId {}: {}", batchId, e.getMessage());
-            return new BatchProcessResponse(false, chunk);
+            return new ChunkProcessResponse(false, chunk);
         }
     }
 
     private List<List<PriceRecord>> partitionBatchIntoChunks(List<PriceRecord> list) {
         List<List<PriceRecord>> chunks = new ArrayList<>();
-        for (int i = 0; i < list.size(); i += CHUNK_SIZE) {
+        for (int i = 0; i < list.size(); i += CHUNK_SIZE) { // Create sublist for each chunk
             chunks.add(list.subList(i, Math.min(i + CHUNK_SIZE, list.size())));
         }
         return chunks;
@@ -71,6 +76,6 @@ public class ChunkProcessor {
 
     public void shutdown() {
         logger.info("Shutting down executor service");
-        executorService.shutdown();
+        executorService.shutdown(); // Shutdown the executor service
     }
 }

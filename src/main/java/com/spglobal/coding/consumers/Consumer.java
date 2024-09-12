@@ -1,23 +1,22 @@
 package com.spglobal.coding.consumers;
 
-import com.spglobal.coding.services.model.PriceRecord;
+import com.spglobal.coding.consumers.dto.GetPriceRecordResponse;
+import com.spglobal.coding.consumers.dto.GetPriceRecordsListResponse;
 import com.spglobal.coding.utils.enums.InstrumentType;
 
 import java.time.Duration;
-import java.util.List;
-import java.util.Optional;
 
 public interface Consumer {
 
-    Optional<PriceRecord> getPriceRecordById(String id, InstrumentType instrumentType);
+    GetPriceRecordResponse getPriceRecordById(String id, InstrumentType instrumentType);
 
-    Optional<PriceRecord> getPriceRecordById(String id);
+    GetPriceRecordResponse getPriceRecordById(String id);
 
-    Optional<PriceRecord> getPriceRecordByInstrumentId(String instrumentId, InstrumentType instrumentType);
+    GetPriceRecordResponse getPriceRecordByInstrumentId(String instrumentId, InstrumentType instrumentType);
 
-    Optional<PriceRecord> getPriceRecordByInstrumentId(String instrumentId);
+    GetPriceRecordResponse getPriceRecordByInstrumentId(String instrumentId);
 
-    List<PriceRecord> getPriceRecordsByInstrumentType(InstrumentType instrumentType);
+    GetPriceRecordsListResponse getPriceRecordsByInstrumentType(InstrumentType instrumentType);
 
-    List<PriceRecord> getPriceRecordsInLastDuration(Duration duration);
+    GetPriceRecordsListResponse getPriceRecordsInLastDuration(Duration duration);
 }

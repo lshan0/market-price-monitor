@@ -24,7 +24,7 @@ public class PriceRecordFactory {
     public static List<PriceRecord> generatePriceRecordBatch() {
         final List<PriceRecord> priceRecords = new ArrayList<>();
 
-        for (int i = 0; i < 100; i++) { // Generates 10000 random price records
+        for (int i = 0; i < 10000; i++) { // Generates 10000 random price records
             final PriceRecord priceRecord = createRandomPriceRecord();
             priceRecords.add(priceRecord);
         }

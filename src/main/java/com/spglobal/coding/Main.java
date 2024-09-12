@@ -1,6 +1,8 @@
 package com.spglobal.coding;
 
 import com.spglobal.coding.consumers.InstrumentConsumer;
+import com.spglobal.coding.consumers.dto.GetPriceRecordResponse;
+import com.spglobal.coding.consumers.dto.GetPriceRecordsListResponse;
 import com.spglobal.coding.producers.InstrumentProducer;
 import com.spglobal.coding.services.InstrumentPriceService;
 import com.spglobal.coding.services.model.PriceRecord;
@@ -13,13 +15,12 @@ import org.slf4j.LoggerFactory;
 import java.time.Duration;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
-import java.util.Optional;
 
 public class Main {
 
     private static final Logger logger = LoggerFactory.getLogger(Main.class);
 
-    public static void main(String[] args) {
+    public static void main(String[] args) throws InterruptedException {
         InstrumentPriceService instrumentPriceService = new InstrumentPriceService();
         ChunkProcessor chunkProcessor = new ChunkProcessor(instrumentPriceService);
 
@@ -37,21 +38,22 @@ public class Main {
             }
         }
 
-        List<PriceRecord> priceRecordList = consumer.getPriceRecordsByInstrumentType(InstrumentType.STOCK);
+        Thread.sleep(3000);
+
+        GetPriceRecordsListResponse priceRecordList = consumer.getPriceRecordsByInstrumentType(InstrumentType.STOCK);
 
         String randomInstrumentId = PriceRecordFactory.getRandomInstrumentId();
-        Optional<PriceRecord> priceRecordWithInstrumentId = consumer.getPriceRecordByInstrumentId(randomInstrumentId);
+        GetPriceRecordResponse priceRecordWithInstrumentId = consumer.getPriceRecordByInstrumentId(randomInstrumentId);
 
         randomInstrumentId = PriceRecordFactory.getRandomInstrumentId();
-        Optional<PriceRecord> priceRecordWithInstrumentIdAndType = consumer.getPriceRecordByInstrumentId(randomInstrumentId, InstrumentType.STOCK);
+        GetPriceRecordResponse priceRecordWithInstrumentIdAndType = consumer.getPriceRecordByInstrumentId(randomInstrumentId, InstrumentType.STOCK);
 
-        List<PriceRecord> priceRecordsWithinDuration = consumer.getPriceRecordsInLastDuration(Duration.of(10, ChronoUnit.SECONDS));
+        GetPriceRecordsListResponse priceRecordsWithinDuration = consumer.getPriceRecordsInLastDuration(Duration.of(10, ChronoUnit.SECONDS));
 
         logger.debug("{} {} {} {}", priceRecordsWithinDuration, priceRecordList, priceRecordWithInstrumentIdAndType, priceRecordWithInstrumentId);
+
     }
 
     //Unit test
-    // Chunking
-    // Sonar
     // Scaling Throughput options
 }
