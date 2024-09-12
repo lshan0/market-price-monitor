@@ -38,7 +38,6 @@ public class InstrumentConsumer implements Consumer {
     // Overloaded method to retrieve price record by ID without InstrumentType
     @Override
     public Optional<PriceRecord> getPriceRecordById(String id) {
-        logger.info("Fetching PriceRecord for recordId: {} without InstrumentType", id);
         return getPriceRecordById(id, null);
     }
 
@@ -59,7 +58,6 @@ public class InstrumentConsumer implements Consumer {
     // Overloaded method to retrieve price record by instrument ID without InstrumentType
     @Override
     public Optional<PriceRecord> getPriceRecordByInstrumentId(String instrumentId) {
-        logger.info("Fetching PriceRecord for instrumentId: {} without InstrumentType", instrumentId);
         return getPriceRecordByInstrumentId(instrumentId, null);
     }
 
@@ -80,7 +78,7 @@ public class InstrumentConsumer implements Consumer {
     // Fetches price records within a given duration
     @Override
     public List<PriceRecord> getPriceRecordsInLastDuration(Duration duration) {
-        logger.info("Fetching PriceRecords within the last {} duration (Not implemented)", duration);
-        return List.of();  // Placeholder for future implementation
+        logger.info("Fetching PriceRecords within the last {} duration", duration);
+        return instrumentPriceService.getPriceRecordsWithDuration(duration);
     }
 }

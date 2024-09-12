@@ -9,6 +9,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.time.Duration;
+import java.time.Instant;
+import java.time.LocalDateTime;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -26,9 +28,9 @@ public class InstrumentPriceService implements PriceService {
 
         for (PriceRecord record : batchProcessRequest.priceRecordList()) {
             try {
-                updateLatestPrice(batchProcessRequest.batchId(), record);
+                updateLatestPrice(batchProcessRequest.batchId(), record); // Process each record in the batch
             } catch (RecordProcessingException e) {
-                failedRecords.add(record);
+                failedRecords.add(record); // Add the failed process to a list for future assessment
                 logger.error("Failed to process record for instrumentId: {} in batchId: {}. Error: {}", record.getId(), batchProcessRequest.batchId(), e.getMessage());
             }
         }
@@ -44,6 +46,7 @@ public class InstrumentPriceService implements PriceService {
             throw new RecordProcessingException("Invalid PriceRecord");
         }
 
+        // Add a new entry to the map for the received instrument key, if not already present
         InstrumentType instrumentType = priceRecord.getInstrumentType();
         Map<String, PriceRecord> priceMap = latestPrices.computeIfAbsent(instrumentType, k -> new ConcurrentHashMap<>());
 
@@ -106,7 +109,13 @@ public class InstrumentPriceService implements PriceService {
 
     @Override
     public List<PriceRecord> getPriceRecordsWithDuration(Duration duration) {
-        return List.of();
+        // Get the threshold date-time, which is the current time minus the duration
+        LocalDateTime threshold = LocalDateTime.now().minus(duration);
+
+        return latestPrices.values().stream()
+                .flatMap(priceMap -> priceMap.values().stream())  // Stream all PriceRecord values
+                .filter(priceRecord -> priceRecord.getAsOf().isAfter(threshold))  // Filter by duration
+                .toList();
     }
 
     @Override
