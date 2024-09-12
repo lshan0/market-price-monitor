@@ -4,21 +4,20 @@ import com.spglobal.coding.producers.dto.BatchProcessRequest;
 import com.spglobal.coding.services.dto.BatchProcessResponse;
 import com.spglobal.coding.services.model.PriceRecord;
 import com.spglobal.coding.utils.Exceptions.RecordProcessingException;
+import com.spglobal.coding.utils.enums.InstrumentType;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
+import java.time.Duration;
+import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
 public class InstrumentPriceService implements PriceService {
 
     private static final Logger logger = LoggerFactory.getLogger(InstrumentPriceService.class);
 
-    // Map to store latest price per instrument ID
-    private static final Map<String, PriceRecord> latestPrices = new ConcurrentHashMap<>();
+    // Map to store latest price per instrument ID. First we're mapping InstrumentType with their values and then their Instrument ID's with their Records.
+    public static final Map<InstrumentType, Map<String, PriceRecord>> latestPrices = new ConcurrentHashMap<>();
 
     @Override
     public BatchProcessResponse processBatch(BatchProcessRequest batchProcessRequest) {
@@ -45,21 +44,69 @@ public class InstrumentPriceService implements PriceService {
             throw new RecordProcessingException("Invalid PriceRecord");
         }
 
+        InstrumentType instrumentType = priceRecord.getInstrumentType();
+        Map<String, PriceRecord> priceMap = latestPrices.computeIfAbsent(instrumentType, k -> new ConcurrentHashMap<>());
+
         // Fetch the current latest price for the given Instrument ID
-        latestPrices.compute(priceRecord.getId(), (instrumentId, currentRecord) -> {
+        priceMap.compute(priceRecord.getInstrumentId(), (_, currentRecord) -> {
             if (currentRecord == null || priceRecord.getAsOf().isAfter(currentRecord.getAsOf())) {
-                logger.debug("New record for ID: {} is more recent. Adding/Updating record.", priceRecord.getId());
+                logger.info("New record for ID: {} is more recent. Adding/Updating record.", priceRecord.getId());
                 return priceRecord;
             } else {
-                logger.debug("Current record for ID: {} is more recent than the new record in batchId: {}", priceRecord.getId(), batchId);
+                logger.info("Current record for ID: {} is more recent than the new record in batchId: {}", priceRecord.getId(), batchId);
                 return currentRecord;
             }
         });
     }
 
     @Override
-    public Optional<PriceRecord> getLatestPrice(String instrumentId) {
-        return Optional.ofNullable(latestPrices.get(instrumentId));
+    public Optional<PriceRecord> getPriceRecordWithRecordId(String recordId, InstrumentType instrumentType) {
+        if (instrumentType == null) {  // // If instrumentType is absent, search all maps and stream over their values
+            return latestPrices.values().stream()
+                    .flatMap(map -> map.values().stream())
+                    .filter(record -> recordId.equals(record.getId()))
+                    .findFirst();
+        }
+        // If instrumentType is present, get the map for that type and stream the values
+        return latestPrices.getOrDefault(instrumentType, Map.of()).values()
+                .stream()
+                .filter(record -> recordId.equals(record.getId()))
+                .findFirst();
+    }
+
+    @Override
+    public Optional<PriceRecord> getPriceRecordWithRecordId(String recordId) {
+        return getPriceRecordWithRecordId(recordId, null);
+    }
+
+    @Override
+    public Optional<PriceRecord> getPriceRecordWithInstrumentId(String instrumentId, InstrumentType instrumentType) {
+        if (instrumentType == null) { // If instrumentType is not present, search all maps for the PriceRecord
+            return latestPrices.values().stream()
+                    .map(priceMap -> priceMap.get(instrumentId))
+                    .findFirst(); // Return the first record if any
+
+        }
+        // If instrumentType is present, get the corresponding map and look up the PriceRecord
+        Map<String, PriceRecord> priceMap = latestPrices.get(instrumentType);
+        return Optional.ofNullable(priceMap).map(map -> map.get(instrumentId));
+    }
+
+    @Override
+    public Optional<PriceRecord> getPriceRecordWithInstrumentId(String instrumentId) {
+        return getPriceRecordWithInstrumentId(instrumentId, null);
+    }
+
+    @Override
+    public List<PriceRecord> getPriceRecordsWithInstrumentType(InstrumentType instrumentType) {
+        return Optional.ofNullable(latestPrices.get(instrumentType))
+                .map(priceMap -> priceMap.values().stream().toList()) // Convert values to a stream and collect into a list
+                .orElse(List.of()); // Return an empty list if the priceMap is null
+    }
+
+    @Override
+    public List<PriceRecord> getPriceRecordsWithDuration(Duration duration) {
+        return List.of();
     }
 
     @Override
@@ -71,6 +118,10 @@ public class InstrumentPriceService implements PriceService {
     @Override
     public void clearPriceForInstrumentId(String instrumentId) {
         logger.info("Clearing price for instrumentId: {}", instrumentId);
-        latestPrices.remove(instrumentId);
+
+        // Iterate over the map entries to clear the price for the given instrumentId
+        for (Map<String, PriceRecord> priceMap : latestPrices.values()) {
+            priceMap.remove(instrumentId);
+        }
     }
 }
