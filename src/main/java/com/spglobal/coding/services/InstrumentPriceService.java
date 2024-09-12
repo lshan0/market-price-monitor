@@ -3,13 +3,12 @@ package com.spglobal.coding.services;
 import com.spglobal.coding.producers.dto.BatchProcessRequest;
 import com.spglobal.coding.services.dto.BatchProcessResponse;
 import com.spglobal.coding.services.model.PriceRecord;
-import com.spglobal.coding.utils.Exceptions.RecordProcessingException;
+import com.spglobal.coding.utils.exceptions.RecordProcessingException;
 import com.spglobal.coding.utils.enums.InstrumentType;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.time.Duration;
-import java.time.Instant;
 import java.time.LocalDateTime;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
@@ -19,23 +18,23 @@ public class InstrumentPriceService implements PriceService {
     private static final Logger logger = LoggerFactory.getLogger(InstrumentPriceService.class);
 
     // Map to store latest price per instrument ID. First we're mapping InstrumentType with their values and then their Instrument ID's with their Records.
-    public static final Map<InstrumentType, Map<String, PriceRecord>> latestPrices = new ConcurrentHashMap<>();
+    protected static final Map<InstrumentType, Map<String, PriceRecord>> latestPrices = new ConcurrentHashMap<>();
 
     @Override
-    public BatchProcessResponse processBatch(BatchProcessRequest batchProcessRequest) {
-        logger.info("Started processing for batchId {}", batchProcessRequest.batchId());
+    public BatchProcessResponse processChunk(BatchProcessRequest batchProcessRequest) {
         List<PriceRecord> failedRecords = new ArrayList<>();
 
-        for (PriceRecord record : batchProcessRequest.priceRecordList()) {
+        logger.info("Processing Started for {} records in chunk from batchId {}", batchProcessRequest.priceRecordList().size(), batchProcessRequest.batchId());
+        for (PriceRecord priceRecord : batchProcessRequest.priceRecordList()) {
             try {
-                updateLatestPrice(batchProcessRequest.batchId(), record); // Process each record in the batch
+                updateLatestPrice(batchProcessRequest.batchId(), priceRecord); // Process each record in the batch
             } catch (RecordProcessingException e) {
-                failedRecords.add(record); // Add the failed process to a list for future assessment
-                logger.error("Failed to process record for instrumentId: {} in batchId: {}. Error: {}", record.getId(), batchProcessRequest.batchId(), e.getMessage());
+                failedRecords.add(priceRecord); // Add the failed process to a list for future assessment
+                logger.error("Failed to process record for instrumentId: {} in batchId: {}. Error: {}", priceRecord.getId(), batchProcessRequest.batchId(), e.getMessage());
             }
         }
 
-        logger.info("Batch processing for batchId {} completed with {} failed records.", batchProcessRequest.batchId(), failedRecords.size());
+        logger.info("Chunk processing for batchId {} completed with {} failed records.", batchProcessRequest.batchId(), failedRecords.size());
         return new BatchProcessResponse(failedRecords.isEmpty(), failedRecords);
     }
 
@@ -51,12 +50,13 @@ public class InstrumentPriceService implements PriceService {
         Map<String, PriceRecord> priceMap = latestPrices.computeIfAbsent(instrumentType, k -> new ConcurrentHashMap<>());
 
         // Fetch the current latest price for the given Instrument ID
-        priceMap.compute(priceRecord.getInstrumentId(), (_, currentRecord) -> {
+        priceMap.compute(priceRecord.getInstrumentId(), (id, currentRecord) -> {
             if (currentRecord == null || priceRecord.getAsOf().isAfter(currentRecord.getAsOf())) {
-                logger.info("New record for ID: {} is more recent. Adding/Updating record.", priceRecord.getId());
+                logger.info("New record for Instrument ID: {} is more recent. Adding/Updating record.", priceRecord.getInstrumentId());
                 return priceRecord;
             } else {
-                logger.info("Current record for ID: {} is more recent than the new record in batchId: {}", priceRecord.getId(), batchId);
+                logger.info("Current record for Instrument ID: {} is more recent than the new record in batchId: {}. Current time: {}, New time: {}",
+                        priceRecord.getInstrumentId(), batchId, currentRecord.getAsOf(), priceRecord.getAsOf());
                 return currentRecord;
             }
         });
@@ -67,13 +67,13 @@ public class InstrumentPriceService implements PriceService {
         if (instrumentType == null) {  // // If instrumentType is absent, search all maps and stream over their values
             return latestPrices.values().stream()
                     .flatMap(map -> map.values().stream())
-                    .filter(record -> recordId.equals(record.getId()))
+                    .filter(priceRecord -> recordId.equals(priceRecord.getId()))
                     .findFirst();
         }
         // If instrumentType is present, get the map for that type and stream the values
         return latestPrices.getOrDefault(instrumentType, Map.of()).values()
                 .stream()
-                .filter(record -> recordId.equals(record.getId()))
+                .filter(priceRecord -> recordId.equals(priceRecord.getId()))
                 .findFirst();
     }
 

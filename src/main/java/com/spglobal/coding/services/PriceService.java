@@ -11,7 +11,7 @@ import java.util.Optional;
 
 public interface PriceService {
 
-    BatchProcessResponse processBatch(BatchProcessRequest batchProcessRequest);
+    BatchProcessResponse processChunk(BatchProcessRequest batchProcessRequest);
 
     void updateLatestPrice(String batchId, PriceRecord priceRecord);
 
