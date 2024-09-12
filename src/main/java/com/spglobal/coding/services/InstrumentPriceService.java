@@ -14,6 +14,14 @@ import java.time.LocalDateTime;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
+/**
+ * The InstrumentPriceService class provides operations for processing and retrieving price records of financial instruments.
+ * It maintains the latest price for each instrument and handles batch processing requests.
+ * <p>
+ * The class uses a ConcurrentHashMap to store the latest prices for each instrument type and instrument ID, ensuring thread safety.
+ * It includes methods for updating prices, fetching prices by record or instrument ID, and clearing stored price data.
+ */
+
 public class InstrumentPriceService implements PriceService {
 
     private static final Logger logger = LoggerFactory.getLogger(InstrumentPriceService.class);
@@ -21,6 +29,13 @@ public class InstrumentPriceService implements PriceService {
     // Map to store latest price per instrument ID. First we're mapping InstrumentType with their values and then their Instrument ID's with their Records.
     protected static final Map<InstrumentType, Map<String, PriceRecord>> latestPrices = new ConcurrentHashMap<>();
 
+    /**
+     * Processes a chunk of price records from a batch and updates the latest prices for each instrument.
+     * Any records that fail to process are logged and returned in the response.
+     *
+     * @param chunkProcessRequest Request containing the batch ID and list of price records to be processed.
+     * @return A response indicating whether the chunk processing was successful and containing any failed records.
+     */
     @Override
     public ChunkProcessResponse processChunk(ChunkProcessRequest chunkProcessRequest) {
         List<PriceRecord> failedRecords = new ArrayList<>();
@@ -39,14 +54,21 @@ public class InstrumentPriceService implements PriceService {
         return new ChunkProcessResponse(failedRecords.isEmpty(), failedRecords);
     }
 
+    /**
+     * Updates the latest price for a given price record if it is more recent than the current record.
+     *
+     * @param batchId     The batch ID for which the price record is being updated.
+     * @param priceRecord The new price record to be updated.
+     * @throws RecordProcessingException If the price record is invalid.
+     */
     @Override
     public void updateLatestPrice(String batchId, PriceRecord priceRecord) {
-        if (priceRecord == null || priceRecord.getAsOf() == null) {
+        if (priceRecord.getAsOf() == null) {
             logger.error("Received invalid Price Record in batchId {}", batchId);
             throw new RecordProcessingException("Invalid PriceRecord");
         }
 
-        // Add a new entry to the map for the received instrument key, if not already present
+        // Ensure the map for the instrument type exists and get the map of price records by instrument ID.
         InstrumentType instrumentType = priceRecord.getInstrumentType();
         Map<String, PriceRecord> priceMap = latestPrices.computeIfAbsent(instrumentType, k -> new ConcurrentHashMap<>());
 
@@ -65,6 +87,8 @@ public class InstrumentPriceService implements PriceService {
 
     @Override
     public Optional<PriceRecord> getPriceRecordWithRecordId(String recordId, InstrumentType instrumentType) {
+        Objects.requireNonNull(recordId, "recordId cannot be null");
+
         if (instrumentType == null) {  // // If instrumentType is absent, search all maps and stream over their values
             return latestPrices.values().stream()
                     .flatMap(map -> map.values().stream())
@@ -85,6 +109,8 @@ public class InstrumentPriceService implements PriceService {
 
     @Override
     public Optional<PriceRecord> getPriceRecordWithInstrumentId(String instrumentId, InstrumentType instrumentType) {
+        Objects.requireNonNull(instrumentId, "instrumentId cannot be null");
+
         if (instrumentType == null) { // If instrumentType is not present, search all maps for the PriceRecord
             return latestPrices.values().stream()
                     .map(priceMap -> priceMap.get(instrumentId))
@@ -113,10 +139,12 @@ public class InstrumentPriceService implements PriceService {
         // Get the threshold date-time, which is the current time minus the duration
         LocalDateTime threshold = LocalDateTime.now().minus(duration);
 
-        return latestPrices.values().stream()
+        final List<PriceRecord> priceRecordList = latestPrices.values().stream()
                 .flatMap(priceMap -> priceMap.values().stream())  // Stream all PriceRecord values
                 .filter(priceRecord -> priceRecord.getAsOf().isAfter(threshold))  // Filter by duration
                 .toList();
+
+        return new GetPriceRecordsListResponse(priceRecordList);
     }
 
     @Override

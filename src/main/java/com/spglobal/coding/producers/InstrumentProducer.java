@@ -1,7 +1,7 @@
 package com.spglobal.coding.producers;
 
-import com.spglobal.coding.producers.dto.PriceRecordBatch;
-import com.spglobal.coding.services.dto.ChunkProcessResponse;
+import com.spglobal.coding.producers.dto.BatchProcessResponse;
+import com.spglobal.coding.producers.model.PriceRecordBatch;
 import com.spglobal.coding.services.model.PriceRecord;
 import com.spglobal.coding.utils.ChunkProcessor;
 import com.spglobal.coding.utils.enums.BatchStatus;
@@ -14,12 +14,13 @@ import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * The InstrumentProducer class manages the lifecycle of price record batches.
- * It handles operations such as starting new batches, uploading records, completing batches, and cancelling them.
+ * It handles operations such as starting new batches, uploading records,
+ * completing batches, and cancelling them.
  * <p>
- * This class utilizes a concurrent map to manage batch records and failed records, ensuring thread-safe operations.
- * It interacts with the InstrumentPriceService to process batches and update statuses based on the success or failure of the batch processing.
- * <p>
- * The class uses SLF4J for logging operations and ensures that appropriate exceptions are thrown for invalid states and operations.
+ * It uses thread-safe collections (ConcurrentHashMap) to store batch records
+ * and failed records, ensuring thread-safe operations in a multi-threaded environment.
+ * The class interacts with the ChunkProcessor to handle the processing of chunks of records
+ * and updates the batch status accordingly.
  */
 
 public class InstrumentProducer implements Producer {
@@ -38,7 +39,12 @@ public class InstrumentProducer implements Producer {
         this.chunkProcessor = chunkProcessor;
     }
 
-    // Starts a new batch and returns the unique batch ID.
+    /**
+     * Starts a new batch and returns a unique batch ID.
+     * Throws an exception if a batch with the same ID already exists.
+     *
+     * @return the batch ID of the newly started batch
+     */
     @Override
     public String startNewBatch() {
         final String batchId = UUID.randomUUID().toString();
@@ -55,7 +61,13 @@ public class InstrumentProducer implements Producer {
         return batchId;
     }
 
-    // Uploads records to an active batch. Ensures that the batch exists and is active.
+    /**
+     * Uploads price records to an active batch.
+     * Ensures that the batch exists and is active before adding records.
+     *
+     * @param batchId the ID of the batch to upload records to
+     * @param records the list of PriceRecord objects to be added to the batch
+     */
     @Override
     public void uploadRecords(String batchId, List<PriceRecord> records) {
         batchMap.compute(batchId, (id, batch) -> {
@@ -72,7 +84,12 @@ public class InstrumentProducer implements Producer {
         });
     }
 
-    // Processes the records and completes the batch. Updates the batch's status after completion.
+    /**
+     * Processes the batch using asynchronous processing
+     * The batch status is updated based on the success or failure of the batch processing.
+     *
+     * @param batchId the ID of the batch to complete
+     */
     @Override
     public void completeBatch(String batchId) {
         batchMap.compute(batchId, (id, batch) -> {
@@ -87,7 +104,7 @@ public class InstrumentProducer implements Producer {
             }
 
             List<PriceRecord> records = batch.getRecords();
-            CompletableFuture<ChunkProcessResponse> batchProcessResponse = chunkProcessor.processBatch(batchId, records);
+            CompletableFuture<BatchProcessResponse> batchProcessResponse = chunkProcessor.processBatch(batchId, records);
 
             // Handle the result of chunk processing
             batchProcessResponse.thenAccept(response -> {
@@ -109,7 +126,6 @@ public class InstrumentProducer implements Producer {
         });
     }
 
-    // Cancels the batch and discards the batch.
     @Override
     public void cancelBatch(String batchId) {
         // Use compute to handle batch retrieval, status check, and update atomically

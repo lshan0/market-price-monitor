@@ -1,4 +1,4 @@
-package com.spglobal.coding.producers.dto;
+package com.spglobal.coding.producers.model;
 
 import com.spglobal.coding.services.model.PriceRecord;
 import com.spglobal.coding.utils.enums.BatchStatus;

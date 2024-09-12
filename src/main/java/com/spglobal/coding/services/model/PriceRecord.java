@@ -4,7 +4,16 @@ import com.spglobal.coding.utils.enums.InstrumentType;
 
 import java.time.LocalDateTime;
 
-// TODO: Use a Builder pattern to maintain extensibility
+/**
+ * Represents a record of a financial instrument's price at a specific point in time.
+ * <p>
+ * This class holds details about the price record, including a unique identifier,
+ * the name and unique ID of the instrument, the type of instrument, the timestamp of the record,
+ * and the payload containing the value and currency of the price.
+ * <p>
+ * The class is designed to be immutable and uses a constructor to initialize all fields.
+ * It is recommended to use the Builder pattern for future extensibility.
+ */
 public class PriceRecord {
     private final String id;                // Unique ID for each PriceRecord
     private final String instrument;        // Name of the instrument
