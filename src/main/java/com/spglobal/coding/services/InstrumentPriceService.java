@@ -16,7 +16,7 @@ import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * The InstrumentPriceService class provides operations for processing and retrieving price records of financial instruments.
- * It maintains the latest price for each instrument and handles batch processing requests.
+ * It maintains the latest price for each instrument and handles chunk processing requests.
  * <p>
  * The class uses a ConcurrentHashMap to store the latest prices for each instrument type and instrument ID, ensuring thread safety.
  * It includes methods for updating prices, fetching prices by record or instrument ID, and clearing stored price data.
@@ -26,7 +26,7 @@ public class InstrumentPriceService implements PriceService {
 
     private static final Logger logger = LoggerFactory.getLogger(InstrumentPriceService.class);
 
-    // Map to store latest price per instrument ID. First we're mapping InstrumentType with their values and then their Instrument ID's with their Records.
+    // First we're mapping InstrumentType with their values and then their Instrument ID's with their Records.
     protected static final Map<InstrumentType, Map<String, PriceRecord>> latestPrices = new ConcurrentHashMap<>();
 
     /**
@@ -46,7 +46,8 @@ public class InstrumentPriceService implements PriceService {
                 updateLatestPrice(chunkProcessRequest.batchId(), priceRecord); // Process each record in the batch
             } catch (RecordProcessingException e) {
                 failedRecords.add(priceRecord); // Add the failed process to a list for future assessment
-                logger.error("Failed to process record for instrumentId: {} in batchId: {}. Error: {}", priceRecord.getId(), chunkProcessRequest.batchId(), e.getMessage());
+                logger.error("Failed to process record for instrumentId: {} in batchId: {}. Error: {}",
+                        priceRecord.getInstrumentId(), chunkProcessRequest.batchId(), e.getMessage());
             }
         }
 
@@ -63,7 +64,7 @@ public class InstrumentPriceService implements PriceService {
      */
     @Override
     public void updateLatestPrice(String batchId, PriceRecord priceRecord) {
-        if (priceRecord.getAsOf() == null) {
+        if (priceRecord.getAsOf() == null || priceRecord.getInstrumentId() == null || priceRecord.getPayload() == null) {
             logger.error("Received invalid Price Record in batchId {}", batchId);
             throw new RecordProcessingException("Invalid PriceRecord");
         }

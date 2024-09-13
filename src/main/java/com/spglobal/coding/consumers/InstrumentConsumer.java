@@ -25,11 +25,6 @@ public class InstrumentConsumer implements Consumer {
 
     private final InstrumentPriceService instrumentPriceService;
 
-    /**
-     * Constructor to inject the InstrumentPriceService dependency.
-     *
-     * @param instrumentPriceService the service responsible for handling price records
-     */
     public InstrumentConsumer(InstrumentPriceService instrumentPriceService) {
         this.instrumentPriceService = instrumentPriceService;
     }
@@ -81,7 +76,6 @@ public class InstrumentConsumer implements Consumer {
         return new GetPriceRecordResponse(priceRecord);
     }
 
-    // Overloaded method to retrieve price record by instrument ID without InstrumentType
     @Override
     public GetPriceRecordResponse getPriceRecordByInstrumentId(String instrumentId) {
         return getPriceRecordByInstrumentId(instrumentId, null);

@@ -6,6 +6,13 @@ import com.spglobal.coding.utils.enums.BatchStatus;
 import java.util.ArrayList;
 import java.util.List;
 
+/**
+ * Represents a batch of {@link PriceRecord} objects that are processed together.
+ * <p>
+ * This class manages a list of price records and tracks the status of the batch using {@link BatchStatus}.
+ * The batch starts in the {@code STARTED} status and can be updated as needed.
+ * New records can be added to the batch using the {@code addAll} method.
+ */
 public class PriceRecordBatch {
     private final List<PriceRecord> records;
     private BatchStatus status;

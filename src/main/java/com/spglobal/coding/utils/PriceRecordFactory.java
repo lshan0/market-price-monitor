@@ -12,6 +12,22 @@ import java.util.List;
 import java.util.Random;
 import java.util.UUID;
 
+/**
+ * Utility class for generating random {@link PriceRecord} objects.
+ * <p>
+ * This class is responsible for creating random price records in batches and provides methods to generate
+ * random instrument IDs and payloads associated with various financial instruments.
+ * It is primarily used to simulate large sets of data for testing purposes.
+ * </p>
+ *
+ * <p><strong>Key functionalities:</strong></p>
+ * <ul>
+ *     <li>Generate a batch of 10,000 random {@link PriceRecord} instances.</li>
+ *     <li>Provide a method for generating a random instrument ID based on a list of stocks.</li>
+ *     <li>Create a consistent instrument ID based on the instrument name.</li>
+ *     <li>Generate random values for the {@link Payload} associated with each {@link PriceRecord}.</li>
+ * </ul>
+ */
 public class PriceRecordFactory {
 
     private static final Random RANDOM = new Random();
@@ -37,7 +53,7 @@ public class PriceRecordFactory {
         return generateIdFromInstrument(instrument);
     }
 
-    private static PriceRecord createRandomPriceRecord() {
+    public static PriceRecord createRandomPriceRecord() {
         final String id = UUID.randomUUID().toString(); // Generates a random UUID for the id
         final String instrument = stocks.get(RANDOM.nextInt(stocks.size()));
         final LocalDateTime asOf = LocalDateTime.now();

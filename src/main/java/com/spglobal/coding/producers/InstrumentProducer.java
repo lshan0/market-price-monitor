@@ -147,4 +147,9 @@ public class InstrumentProducer implements Producer {
             return batch;
         });
     }
+
+    // Public method for testing purposes
+    public PriceRecordBatch getBatchById(String batchId) {
+        return batchMap.get(batchId);
+    }
 }

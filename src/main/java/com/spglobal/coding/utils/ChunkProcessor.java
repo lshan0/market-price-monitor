@@ -10,7 +10,6 @@ import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -42,8 +41,9 @@ public class ChunkProcessor {
      * @throws NullPointerException if batchId or allRecords is null.
      */
     public CompletableFuture<BatchProcessResponse> processBatch(String batchId, List<PriceRecord> allRecords) {
-        Objects.requireNonNull(batchId, "batchId cannot be null");
-        Objects.requireNonNull(allRecords, "allRecords cannot be null");
+        if (batchId == null || allRecords == null) {
+            throw new NullPointerException("batchId/Records cannot be null");
+        }
 
         // Split records into chunks
         List<List<PriceRecord>> chunks = partitionBatchIntoChunks(allRecords);
