@@ -72,7 +72,7 @@ public class InstrumentConsumer implements Consumer {
             return new GetPriceRecordResponse(Optional.empty());
         }
 
-        logger.info("Found {} PriceRecords for instrumentId: {}", priceRecord, instrumentId);
+        logger.info("Found PriceRecord ID {} for instrumentId: {}", priceRecord.get().getId(), instrumentId);
         return new GetPriceRecordResponse(priceRecord);
     }
 

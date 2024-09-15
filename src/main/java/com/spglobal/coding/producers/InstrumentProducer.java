@@ -1,9 +1,9 @@
 package com.spglobal.coding.producers;
 
 import com.spglobal.coding.producers.dto.BatchProcessResponse;
-import com.spglobal.coding.producers.model.PriceRecordBatch;
-import com.spglobal.coding.services.model.PriceRecord;
+import com.spglobal.coding.producers.model.PriceRecordUpdateRequestBatch;
 import com.spglobal.coding.utils.ChunkProcessor;
+import com.spglobal.coding.utils.dto.UpdatePriceRecordRequest;
 import com.spglobal.coding.utils.enums.BatchStatus;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -27,8 +27,8 @@ public class InstrumentProducer implements Producer {
 
     private static final Logger logger = LoggerFactory.getLogger(InstrumentProducer.class);
 
-    private static final Map<String, PriceRecordBatch> batchMap = new ConcurrentHashMap<>(); // map to pair the batchId with their records
-    private static final Map<String, List<PriceRecord>> failedRecordsMap = new ConcurrentHashMap<>(); // map to store all the failed records with their batchId
+    protected static final Map<String, PriceRecordUpdateRequestBatch> batchMap = new ConcurrentHashMap<>(); // map to pair the batchId with their records
+    protected static final Map<String, List<UpdatePriceRecordRequest>> failedRecordsMap = new ConcurrentHashMap<>(); // map to store all the failed records with their batchId
 
     private static final String BATCH_ID_ERROR_MESSAGE_PREFIX = "Batch run with ID ";
     private static final String BATCH_NOT_FOUND_ERROR_MESSAGE_SUFFIX = " does not exist.";
@@ -55,7 +55,7 @@ public class InstrumentProducer implements Producer {
                 throw new IllegalStateException(BATCH_ID_ERROR_MESSAGE_PREFIX + batchId + " is already started.");
             }
             logger.info("Started new batch with ID: {}", batchId);
-            return new PriceRecordBatch();
+            return new PriceRecordUpdateRequestBatch();
         });
 
         return batchId;
@@ -69,7 +69,7 @@ public class InstrumentProducer implements Producer {
      * @param records the list of PriceRecord objects to be added to the batch
      */
     @Override
-    public void uploadRecords(String batchId, List<PriceRecord> records) {
+    public void uploadRecords(String batchId, List<UpdatePriceRecordRequest> records) {
         batchMap.compute(batchId, (id, batch) -> {
             if (batch == null) {
                 throw new IllegalStateException(BATCH_ID_ERROR_MESSAGE_PREFIX + batchId + BATCH_NOT_FOUND_ERROR_MESSAGE_SUFFIX);
@@ -103,7 +103,7 @@ public class InstrumentProducer implements Producer {
                 throw new IllegalStateException(BATCH_ID_ERROR_MESSAGE_PREFIX + batchId + " does not contain valid price records.");
             }
 
-            List<PriceRecord> records = batch.getRecords();
+            List<UpdatePriceRecordRequest> records = batch.getRecords();
             CompletableFuture<BatchProcessResponse> batchProcessResponse = chunkProcessor.processBatch(batchId, records);
 
             // Handle the result of chunk processing
@@ -149,7 +149,7 @@ public class InstrumentProducer implements Producer {
     }
 
     // Public method for testing purposes
-    public PriceRecordBatch getBatchById(String batchId) {
+    public PriceRecordUpdateRequestBatch getBatchById(String batchId) {
         return batchMap.get(batchId);
     }
 }

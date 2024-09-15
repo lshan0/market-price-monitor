@@ -1,10 +1,11 @@
 package com.spglobal.coding.producers;
 
 import com.spglobal.coding.producers.dto.BatchProcessResponse;
-import com.spglobal.coding.producers.model.PriceRecordBatch;
+import com.spglobal.coding.producers.model.PriceRecordUpdateRequestBatch;
 import com.spglobal.coding.services.model.PriceRecord;
 import com.spglobal.coding.utils.ChunkProcessor;
-import com.spglobal.coding.utils.PriceRecordFactory;
+import com.spglobal.coding.utils.UpdatePriceRecordRequestFactory;
+import com.spglobal.coding.utils.dto.UpdatePriceRecordRequest;
 import com.spglobal.coding.utils.enums.BatchStatus;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -40,7 +41,7 @@ class InstrumentProducerTest {
         // Assert
         assertNotNull(batchId);
         assertFalse(batchId.isEmpty());
-        PriceRecordBatch createdBatch = instrumentProducer.getBatchById(batchId);
+        PriceRecordUpdateRequestBatch createdBatch = instrumentProducer.getBatchById(batchId);
         assertNotNull(createdBatch);
         assertEquals(BatchStatus.STARTED, createdBatch.getStatus());
     }
@@ -49,13 +50,13 @@ class InstrumentProducerTest {
     void testUploadRecordsToExistingBatch() {
         // Arrange
         String batchId = instrumentProducer.startNewBatch();
-        List<PriceRecord> priceRecords = createPriceRecords(5);
+        List<UpdatePriceRecordRequest> updatePriceRecordRequests = createRandomUpdatePriceRecordRequest(5);
 
         // Act
-        instrumentProducer.uploadRecords(batchId, priceRecords);
+        instrumentProducer.uploadRecords(batchId, updatePriceRecordRequests);
 
         // Assert
-        PriceRecordBatch batch = instrumentProducer.getBatchById(batchId);
+        PriceRecordUpdateRequestBatch batch = instrumentProducer.getBatchById(batchId);
         assertNotNull(batch);
         assertEquals(BatchStatus.IN_PROGRESS, batch.getStatus());
         assertEquals(5, batch.getRecords().size());
@@ -64,19 +65,19 @@ class InstrumentProducerTest {
     @Test
     void testUploadRecordsToNonExistentBatch() {
         // Arrange
-        List<PriceRecord> priceRecords = createPriceRecords(5);
+        List<UpdatePriceRecordRequest> updatePriceRecordRequests = createRandomUpdatePriceRecordRequest(5);
         String invalidBatchId = UUID.randomUUID().toString();
 
         // Act & Assert
         IllegalStateException exception = assertThrows(IllegalStateException.class, () -> {
             // Only the potentially exception-throwing operation should be inside the lambda
-            uploadRecordsToBatch(invalidBatchId, priceRecords);
+            uploadRecordsToBatch(invalidBatchId, updatePriceRecordRequests);
         });
         assertTrue(exception.getMessage().contains("does not exist"));
     }
 
     // Helper method to isolate the uploadRecords operation
-    private void uploadRecordsToBatch(String batchId, List<PriceRecord> priceRecords) {
+    private void uploadRecordsToBatch(String batchId, List<UpdatePriceRecordRequest> priceRecords) {
         instrumentProducer.uploadRecords(batchId, priceRecords);
     }
 
@@ -84,20 +85,20 @@ class InstrumentProducerTest {
     void testCompleteBatchSuccessfully() {
         // Arrange
         String batchId = instrumentProducer.startNewBatch();
-        List<PriceRecord> priceRecords = createPriceRecords(5);
-        instrumentProducer.uploadRecords(batchId, priceRecords);
+        List<UpdatePriceRecordRequest> updatePriceRecordRequests = createRandomUpdatePriceRecordRequest(5);
+        instrumentProducer.uploadRecords(batchId, updatePriceRecordRequests);
 
         BatchProcessResponse mockResponse = new BatchProcessResponse(true, new ArrayList<>());
         CompletableFuture<BatchProcessResponse> future = CompletableFuture.completedFuture(mockResponse);
 
-        when(chunkProcessor.processBatch(batchId, priceRecords)).thenReturn(future);
+        when(chunkProcessor.processBatch(batchId, updatePriceRecordRequests)).thenReturn(future);
 
         // Act
         instrumentProducer.completeBatch(batchId);
 
         // Assert
-        verify(chunkProcessor, times(1)).processBatch(batchId, priceRecords);
-        PriceRecordBatch batch = instrumentProducer.getBatchById(batchId);
+        verify(chunkProcessor, times(1)).processBatch(batchId, updatePriceRecordRequests);
+        PriceRecordUpdateRequestBatch batch = instrumentProducer.getBatchById(batchId);
         assertEquals(BatchStatus.COMPLETED, batch.getStatus());
     }
 
@@ -105,21 +106,21 @@ class InstrumentProducerTest {
     void testCompleteBatchWithErrors() {
         // Arrange
         String batchId = instrumentProducer.startNewBatch();
-        List<PriceRecord> priceRecords = createPriceRecords(5);
-        instrumentProducer.uploadRecords(batchId, priceRecords);
+        List<UpdatePriceRecordRequest> updatePriceRecordRequests = createRandomUpdatePriceRecordRequest(5);
+        instrumentProducer.uploadRecords(batchId, updatePriceRecordRequests);
 
-        List<PriceRecord> failedRecords = createPriceRecords(2);
-        BatchProcessResponse mockResponse = new BatchProcessResponse(false, failedRecords);
+        List<UpdatePriceRecordRequest> failedUpdateRequests = createRandomUpdatePriceRecordRequest(2);
+        BatchProcessResponse mockResponse = new BatchProcessResponse(false, failedUpdateRequests);
         CompletableFuture<BatchProcessResponse> future = CompletableFuture.completedFuture(mockResponse);
 
-        when(chunkProcessor.processBatch(batchId, priceRecords)).thenReturn(future);
+        when(chunkProcessor.processBatch(batchId, updatePriceRecordRequests)).thenReturn(future);
 
         // Act
         instrumentProducer.completeBatch(batchId);
 
         // Assert
-        verify(chunkProcessor, times(1)).processBatch(batchId, priceRecords);
-        PriceRecordBatch batch = instrumentProducer.getBatchById(batchId);
+        verify(chunkProcessor, times(1)).processBatch(batchId, updatePriceRecordRequests);
+        PriceRecordUpdateRequestBatch batch = instrumentProducer.getBatchById(batchId);
         assertEquals(BatchStatus.PROCESSED_WITH_ERRORS, batch.getStatus());
     }
 
@@ -127,18 +128,18 @@ class InstrumentProducerTest {
     void testCompleteBatchFails() {
         // Arrange
         String batchId = instrumentProducer.startNewBatch();
-        List<PriceRecord> priceRecords = createPriceRecords(5);
-        instrumentProducer.uploadRecords(batchId, priceRecords);
+        List<UpdatePriceRecordRequest> updatePriceRecordRequests = createRandomUpdatePriceRecordRequest(5);
+        instrumentProducer.uploadRecords(batchId, updatePriceRecordRequests);
 
         CompletableFuture<BatchProcessResponse> future = CompletableFuture.failedFuture(new RuntimeException("Processing error"));
 
-        when(chunkProcessor.processBatch(batchId, priceRecords)).thenReturn(future);
+        when(chunkProcessor.processBatch(batchId, updatePriceRecordRequests)).thenReturn(future);
 
         // Act
         instrumentProducer.completeBatch(batchId);
 
         // Assert
-        PriceRecordBatch batch = instrumentProducer.getBatchById(batchId);
+        PriceRecordUpdateRequestBatch batch = instrumentProducer.getBatchById(batchId);
         assertEquals(BatchStatus.FAILED, batch.getStatus());
     }
 
@@ -146,14 +147,14 @@ class InstrumentProducerTest {
     void testCancelBatchSuccessfully() {
         // Arrange
         String batchId = instrumentProducer.startNewBatch();
-        List<PriceRecord> priceRecords = createPriceRecords(5);
+        List<UpdatePriceRecordRequest> priceRecords = createRandomUpdatePriceRecordRequest(5);
         instrumentProducer.uploadRecords(batchId, priceRecords);
 
         // Act
         instrumentProducer.cancelBatch(batchId);
 
         // Assert
-        PriceRecordBatch batch = instrumentProducer.getBatchById(batchId);
+        PriceRecordUpdateRequestBatch batch = instrumentProducer.getBatchById(batchId);
         assertEquals(BatchStatus.CANCELLED, batch.getStatus());
     }
 
@@ -170,10 +171,10 @@ class InstrumentProducerTest {
     }
 
     // Helper method to create price records using PriceRecordFactory
-    private List<PriceRecord> createPriceRecords(int count) {
-        List<PriceRecord> records = new ArrayList<>();
+    private List<UpdatePriceRecordRequest> createRandomUpdatePriceRecordRequest(int count) {
+        List<UpdatePriceRecordRequest> records = new ArrayList<>();
         for (int i = 0; i < count; i++) {
-            records.add(PriceRecordFactory.createRandomPriceRecord());
+            records.add(UpdatePriceRecordRequestFactory.createRandomUpdatePriceRecordRequest());
         }
         return records;
     }

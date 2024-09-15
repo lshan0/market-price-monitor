@@ -7,7 +7,8 @@ import com.spglobal.coding.producers.InstrumentProducer;
 import com.spglobal.coding.services.InstrumentPriceService;
 import com.spglobal.coding.services.model.PriceRecord;
 import com.spglobal.coding.utils.ChunkProcessor;
-import com.spglobal.coding.utils.PriceRecordFactory;
+import com.spglobal.coding.utils.UpdatePriceRecordRequestFactory;
+import com.spglobal.coding.utils.dto.UpdatePriceRecordRequest;
 import com.spglobal.coding.utils.enums.InstrumentType;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -15,6 +16,7 @@ import org.slf4j.LoggerFactory;
 import java.time.Duration;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
+import java.util.Map;
 
 public class Main {
 
@@ -27,36 +29,32 @@ public class Main {
         InstrumentProducer producer = new InstrumentProducer(chunkProcessor);
         InstrumentConsumer consumer = new InstrumentConsumer(instrumentPriceService);
 
-        for (int i = 0; i < 2; i++) {
-            List<PriceRecord> priceRecordList = PriceRecordFactory.generatePriceRecordBatch();
-            try {
-                String batchId = producer.startNewBatch();
-                producer.uploadRecords(batchId, priceRecordList);
-                producer.completeBatch(batchId);
-            } catch (Exception e) {
-                logger.info("Unexpected error while producer generation: {}", e.getMessage());
-            }
+        Map<InstrumentType, Map<String, PriceRecord>> latestPrices = InstrumentPriceService.getLatestPrices();
+
+        List<UpdatePriceRecordRequest> updatePriceRecordRequestList = UpdatePriceRecordRequestFactory.generateUpdatePriceRecordRequestBatch();
+        try {
+            String batchId = producer.startNewBatch();
+            producer.uploadRecords(batchId, updatePriceRecordRequestList);
+            producer.completeBatch(batchId);
+        } catch (Exception e) {
+            logger.info("Unexpected error while producer generation: {}", e.getMessage());
         }
 
-        Thread.sleep(3000);
+        Thread.sleep(7000);
 
-        GetPriceRecordsListResponse priceRecordList = consumer.getPriceRecordsByInstrumentType(InstrumentType.STOCK);
+        GetPriceRecordsListResponse getPriceRecordsListResponse1 = consumer.getPriceRecordsByInstrumentType(InstrumentType.STOCK);
+        GetPriceRecordsListResponse getPriceRecordsListResponse2 = consumer.getPriceRecordsByInstrumentType(InstrumentType.COMMODITIES);
 
-        String randomInstrumentId = PriceRecordFactory.getRandomInstrumentId();
+        String randomInstrumentId = UpdatePriceRecordRequestFactory.getRandomInstrumentId();
         GetPriceRecordResponse priceRecordWithInstrumentId = consumer.getPriceRecordByInstrumentId(randomInstrumentId);
 
-        randomInstrumentId = PriceRecordFactory.getRandomInstrumentId();
-        GetPriceRecordResponse priceRecordWithInstrumentIdAndType = consumer.getPriceRecordByInstrumentId(randomInstrumentId, InstrumentType.STOCK);
+        randomInstrumentId = UpdatePriceRecordRequestFactory.getRandomInstrumentId();
+        InstrumentType type = UpdatePriceRecordRequestFactory.getInstrumentTypeFromId(randomInstrumentId);
+        GetPriceRecordResponse priceRecordWithInstrumentIdAndType = consumer.getPriceRecordByInstrumentId(randomInstrumentId, type);
 
         GetPriceRecordsListResponse priceRecordsWithinDuration = consumer.getPriceRecordsInLastDuration(Duration.of(10, ChronoUnit.SECONDS));
 
-        logger.debug("{} {} {} {}", priceRecordsWithinDuration, priceRecordList, priceRecordWithInstrumentIdAndType, priceRecordWithInstrumentId);
+        logger.debug("{} {} {} {} {}", priceRecordsWithinDuration, getPriceRecordsListResponse1, getPriceRecordsListResponse2, priceRecordWithInstrumentIdAndType, priceRecordWithInstrumentId);
 
     }
-
-    //Unit test
-    // Scaling Throughput options
-    // Scenario File
-    // Future Scaling File - Micro, Caching
-
 }

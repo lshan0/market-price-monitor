@@ -2,7 +2,14 @@ package com.spglobal.coding.services.model;
 
 import com.spglobal.coding.utils.enums.InstrumentType;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.Comparator;
+import java.util.Queue;
+import java.util.SortedSet;
+import java.util.UUID;
+import java.util.concurrent.ConcurrentSkipListSet;
+import java.util.concurrent.PriorityBlockingQueue;
 
 /**
  * Represents a record of a financial instrument's price at a specific point in time.
@@ -19,21 +26,26 @@ public class PriceRecord {
     private final String instrument;        // Name of the instrument
     private final String instrumentId;      // Unique ID for the instrument
     private final InstrumentType instrumentType;
-    private final LocalDateTime asOf;
-    private final Payload payload;
+    private  LocalDateTime lastUpdateTime;
+    private  BigDecimal latestPrice;
+    private final SortedSet<Payload> payloadHistory;
 
-    public PriceRecord(String id,
-                       String instrument,
+    private static final int HISTORY_SIZE = 10;
+
+    public PriceRecord(String instrument,
                        String instrumentId,
                        InstrumentType instrumentType,
-                       LocalDateTime asOf,
-                       Payload payload) {
-        this.id = id;
+                       LocalDateTime lastUpdateTime,
+                       BigDecimal latestPrice,
+                       Payload initialPayload) {
+        this.id = UUID.randomUUID().toString();
         this.instrument = instrument;
         this.instrumentId = instrumentId;
         this.instrumentType = instrumentType;
-        this.asOf = asOf;
-        this.payload = payload;
+        this.lastUpdateTime = lastUpdateTime;
+        this.latestPrice = latestPrice;
+        this.payloadHistory = new ConcurrentSkipListSet<>(Comparator.comparing(Payload::getAsOf).reversed());
+        payloadHistory.add(initialPayload);
     }
 
     public String getId() {
@@ -52,12 +64,24 @@ public class PriceRecord {
         return instrumentType;
     }
 
-    public LocalDateTime getAsOf() {
-        return asOf;
+    public LocalDateTime getLastUpdateTime() {
+        return lastUpdateTime;
     }
 
-    public Payload getPayload() {
-        return payload;
+    public BigDecimal getLatestPrice() {
+        return latestPrice;
+    }
+
+    public SortedSet<Payload> getPayloadHistory() {
+        return payloadHistory;
+    }
+
+    public void setLastUpdateTime(LocalDateTime lastUpdateTime) {
+        this.lastUpdateTime = lastUpdateTime;
+    }
+
+    public void setLatestPrice(BigDecimal latestPrice) {
+        this.latestPrice = latestPrice;
     }
 
     @Override
@@ -67,8 +91,8 @@ public class PriceRecord {
                 ", instrument='" + instrument + '\'' +
                 ", instrumentId='" + instrumentId + '\'' +
                 ", instrumentType=" + instrumentType +
-                ", asOf=" + asOf +
-                ", payload=" + payload +
+                ", lastUpdateTime=" + lastUpdateTime +
+                ", payload=" + payloadHistory +
                 '}';
     }
 }

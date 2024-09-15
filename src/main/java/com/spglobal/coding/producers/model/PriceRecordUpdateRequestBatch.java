@@ -1,6 +1,7 @@
 package com.spglobal.coding.producers.model;
 
 import com.spglobal.coding.services.model.PriceRecord;
+import com.spglobal.coding.utils.dto.UpdatePriceRecordRequest;
 import com.spglobal.coding.utils.enums.BatchStatus;
 
 import java.util.ArrayList;
@@ -13,16 +14,16 @@ import java.util.List;
  * The batch starts in the {@code STARTED} status and can be updated as needed.
  * New records can be added to the batch using the {@code addAll} method.
  */
-public class PriceRecordBatch {
-    private final List<PriceRecord> records;
+public class PriceRecordUpdateRequestBatch {
+    private final List<UpdatePriceRecordRequest> records;
     private BatchStatus status;
 
-    public PriceRecordBatch() {
+    public PriceRecordUpdateRequestBatch() {
         this.records = new ArrayList<>();
         this.status = BatchStatus.STARTED;
     }
 
-    public List<PriceRecord> getRecords() {
+    public List<UpdatePriceRecordRequest> getRecords() {
         return records;
     }
 
@@ -34,7 +35,7 @@ public class PriceRecordBatch {
         this.status = status;
     }
 
-    public void addAll(List<PriceRecord> records) {
+    public void addAll(List<UpdatePriceRecordRequest> records) {
         this.records.addAll(records);
     }
 }

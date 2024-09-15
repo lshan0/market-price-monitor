@@ -4,6 +4,8 @@ import com.spglobal.coding.consumers.dto.GetPriceRecordsListResponse;
 import com.spglobal.coding.producers.dto.ChunkProcessRequest;
 import com.spglobal.coding.services.dto.ChunkProcessResponse;
 import com.spglobal.coding.services.model.PriceRecord;
+import com.spglobal.coding.utils.UpdatePriceRecordRequestFactory;
+import com.spglobal.coding.utils.dto.UpdatePriceRecordRequest;
 import com.spglobal.coding.utils.enums.InstrumentType;
 
 import java.time.Duration;
@@ -14,7 +16,7 @@ public interface PriceService {
 
     ChunkProcessResponse processChunk(ChunkProcessRequest chunkProcessRequest);
 
-    void updateLatestPrice(String batchId, PriceRecord priceRecord);
+    void updateLatestPrice(String batchId, UpdatePriceRecordRequest updateRequest);
 
     Optional<PriceRecord> getPriceRecordWithRecordId(String recordId, InstrumentType instrumentType);
 

@@ -3,8 +3,8 @@ package com.spglobal.coding.services;
 import com.spglobal.coding.consumers.dto.GetPriceRecordsListResponse;
 import com.spglobal.coding.producers.dto.ChunkProcessRequest;
 import com.spglobal.coding.services.dto.ChunkProcessResponse;
-import com.spglobal.coding.services.model.Payload;
 import com.spglobal.coding.services.model.PriceRecord;
+import com.spglobal.coding.utils.dto.UpdatePriceRecordRequest;
 import com.spglobal.coding.utils.enums.Currency;
 import com.spglobal.coding.utils.exceptions.RecordProcessingException;
 import com.spglobal.coding.utils.enums.InstrumentType;
@@ -39,13 +39,28 @@ class InstrumentServiceTest {
 
     @Test
     void testProcessChunkSuccess() {
-        // Arrange
         String batchId = "batch123";
-        Payload payload1 = new Payload(BigDecimal.valueOf(100), Currency.USD);
-        Payload payload2 = new Payload(BigDecimal.valueOf(200), Currency.USD);
-        PriceRecord priceRecord1 = new PriceRecord("id1", "instrument1", "instId1", InstrumentType.STOCK, LocalDateTime.now(), payload1);
-        PriceRecord priceRecord2 = new PriceRecord("id2", "instrument2", "instId2", InstrumentType.BOND, LocalDateTime.now(), payload2);
-        ChunkProcessRequest request = new ChunkProcessRequest(batchId, List.of(priceRecord1, priceRecord2));
+
+        // Create UpdatePriceRecordRequest objects
+        UpdatePriceRecordRequest updateRequest1 = new UpdatePriceRecordRequest.Builder()
+                .setId(1)
+                .setInstrument("instrument1")
+                .setInstrumentType(InstrumentType.STOCK)
+                .setValue(BigDecimal.valueOf(100))
+                .setCurrency(Currency.USD)
+                .setRequestTime(LocalDateTime.now())
+                .build();
+
+        UpdatePriceRecordRequest updateRequest2 = new UpdatePriceRecordRequest.Builder()
+                .setId(2)
+                .setInstrument("instrument2")
+                .setInstrumentType(InstrumentType.BOND)
+                .setValue(BigDecimal.valueOf(200))
+                .setCurrency(Currency.USD)
+                .setRequestTime(LocalDateTime.now())
+                .build();
+
+        ChunkProcessRequest request = new ChunkProcessRequest(batchId, List.of(updateRequest1, updateRequest2));
 
         // Act
         ChunkProcessResponse response = instrumentPriceService.processChunk(request);
@@ -59,148 +74,256 @@ class InstrumentServiceTest {
 
     @Test
     void testProcessChunkFailure() {
-        // Arrange
         String batchId = "batch123";
-        PriceRecord invalidRecord = new PriceRecord(null, null, null, null, null, null);
-        ChunkProcessRequest request = new ChunkProcessRequest(batchId, List.of(invalidRecord));
 
-        // Act
+        // Create an invalid UpdatePriceRecordRequest with null or invalid values
+        UpdatePriceRecordRequest invalidRequest = new UpdatePriceRecordRequest.Builder()
+                .setId(0)
+                .setInstrument(null)
+                .setInstrumentType(null)
+                .setValue(null)
+                .setCurrency(null)
+                .setRequestTime(null)
+                .build();
+
+        // Create the ChunkProcessRequest with the invalid request
+        ChunkProcessRequest request = new ChunkProcessRequest(batchId, List.of(invalidRequest));
         ChunkProcessResponse response = instrumentPriceService.processChunk(request);
 
         // Assert
         assertFalse(response.isSuccess());
         assertEquals(1, response.failedRecords().size());
+        assertEquals(invalidRequest, response.failedRecords().get(0));
     }
 
+
     @Test
-    void testUpdateLatestPriceWithValidRecord() {
-        // Arrange
-        Payload payload = new Payload(BigDecimal.valueOf(100), Currency.USD);
-        PriceRecord priceRecord = new PriceRecord("id1", "instrument1", "instId1", InstrumentType.STOCK, LocalDateTime.now(), payload);
-        InstrumentPriceService.latestPrices.clear();  // Ensure the map is empty before the test
+    void testUpdateLatestPriceWithValidUpdateRequest() {
+        UpdatePriceRecordRequest updateRequest = new UpdatePriceRecordRequest.Builder()
+                .setId(1)
+                .setInstrument("instrument1")
+                .setInstrumentType(InstrumentType.STOCK)
+                .setValue(BigDecimal.valueOf(100))
+                .setCurrency(Currency.USD)
+                .setRequestTime(LocalDateTime.now())
+                .build();
 
-        // Act
-        instrumentPriceService.updateLatestPrice("batch123", priceRecord);
+        instrumentPriceService.updateLatestPrice("batch123", updateRequest);
 
-        // Assert
         Map<String, PriceRecord> priceMap = InstrumentPriceService.latestPrices.get(InstrumentType.STOCK);
         assertNotNull(priceMap);
-        assertEquals(priceRecord, priceMap.get("instId1"));
+
+        String generatedInstrumentId = InstrumentPriceService.generateIdFromInstrument(updateRequest.getInstrument());
+        PriceRecord updatedPriceRecord = priceMap.get(generatedInstrumentId);
+
+        assertNotNull(updatedPriceRecord); // Ensure the record is updated
+        assertEquals(updateRequest.getInstrument(), updatedPriceRecord.getInstrument());
+        assertEquals(updateRequest.getValue(), updatedPriceRecord.getPayloadHistory().first().getValue());
+        assertEquals(updateRequest.getCurrency(), updatedPriceRecord.getPayloadHistory().first().getCurrency());
+        assertEquals(updateRequest.getRequestTime(), updatedPriceRecord.getPayloadHistory().first().getAsOf());
     }
 
 
     @Test
-    void testUpdateLatestPriceWithInvalidRecord() {
-        // Arrange
-        PriceRecord invalidRecord = new PriceRecord(null, null, null, null, null, null);
+    void testUpdateLatestPriceWithInvalidUpdateRequest() {
+        UpdatePriceRecordRequest updateRequest = new UpdatePriceRecordRequest.Builder()
+                .setId(1)
+                .setInstrument(null)
+                .setInstrumentType(null)
+                .setValue(null)
+                .setCurrency(null)
+                .setRequestTime(null)
+                .build();
 
-        // Act & Assert
         assertThrows(RecordProcessingException.class, () -> {
-            instrumentPriceService.updateLatestPrice("batch123", invalidRecord);
+            instrumentPriceService.updateLatestPrice("batch123", updateRequest);
         });
     }
 
     @Test
     void testGetPriceRecordWithRecordId() {
-        // Arrange
-        Payload payload = new Payload(BigDecimal.valueOf(100), Currency.USD);
-        PriceRecord priceRecord = new PriceRecord("id1", "instrument1", "instId1", InstrumentType.STOCK, LocalDateTime.now(), payload);
-        instrumentPriceService.updateLatestPrice("batch123", priceRecord);
+        UpdatePriceRecordRequest updateRequest = new UpdatePriceRecordRequest.Builder()
+                .setId(1)
+                .setInstrument("Silver")
+                .setInstrumentType(InstrumentType.STOCK)
+                .setValue(BigDecimal.valueOf(100))
+                .setCurrency(Currency.USD)
+                .setRequestTime(LocalDateTime.now())
+                .build();
 
-        // Act
-        Optional<PriceRecord> result = instrumentPriceService.getPriceRecordWithRecordId("id1", InstrumentType.STOCK);
+        instrumentPriceService.updateLatestPrice("batch123", updateRequest);
 
-        // Assert
-        assertTrue(result.isPresent());
-        assertEquals(priceRecord, result.get());
+        Map<InstrumentType, Map<String, PriceRecord>> latestPrices = InstrumentPriceService.getLatestPrices();
+        String recordId = latestPrices.get(InstrumentType.STOCK).get("SILVER").getId();
+
+        Optional<PriceRecord> result1 = instrumentPriceService.getPriceRecordWithRecordId(recordId, InstrumentType.STOCK);
+        Optional<PriceRecord> result2 = instrumentPriceService.getPriceRecordWithRecordId(recordId, null);
+        Optional<PriceRecord> invalidResult = instrumentPriceService.getPriceRecordWithRecordId(recordId + "test", InstrumentType.BOND);
+
+        assertTrue(result1.isPresent());
+        assertTrue(result2.isPresent());
+        assertTrue(invalidResult.isEmpty());
+
+        assertEquals(updateRequest.getInstrument(), result1.get().getInstrument());
+        assertEquals(updateRequest.getInstrument(), result2.get().getInstrument());
     }
 
     @Test
     void testGetPriceRecordWithInstrumentId() {
-        // Arrange
-        Payload payload = new Payload(BigDecimal.valueOf(100), Currency.USD);
-        PriceRecord priceRecord = new PriceRecord("id1", "instrument1", "instId1", InstrumentType.STOCK, LocalDateTime.now(), payload);
-        instrumentPriceService.updateLatestPrice("batch123", priceRecord);
+        UpdatePriceRecordRequest updateRequest = new UpdatePriceRecordRequest.Builder()
+                .setId(1)
+                .setInstrument("Silver")
+                .setInstrumentType(InstrumentType.COMMODITIES)
+                .setValue(BigDecimal.valueOf(100))
+                .setCurrency(Currency.USD)
+                .setRequestTime(LocalDateTime.now())
+                .build();
 
-        // Act
-        Optional<PriceRecord> result = instrumentPriceService.getPriceRecordWithInstrumentId("instId1", InstrumentType.STOCK);
+        instrumentPriceService.clearAllPrices();
+        instrumentPriceService.updateLatestPrice("batch123", updateRequest);
 
-        // Assert
-        assertTrue(result.isPresent());
-        assertEquals(priceRecord, result.get());
+        Optional<PriceRecord> result1 = instrumentPriceService.getPriceRecordWithInstrumentId("SILVER", InstrumentType.COMMODITIES);
+        Optional<PriceRecord> result2 = instrumentPriceService.getPriceRecordWithInstrumentId("SILVER", null);
+        Optional<PriceRecord> invalidRequest = instrumentPriceService.getPriceRecordWithInstrumentId("GOLD", InstrumentType.BOND);
+
+        assertTrue(result1.isPresent());
+        assertTrue(result2.isPresent());
+        assertTrue(invalidRequest.isEmpty());
+        assertEquals(updateRequest.getInstrument(), result1.get().getInstrument());
+        assertEquals(updateRequest.getInstrument(), result2.get().getInstrument());
     }
+
 
     @Test
     void testGetPriceRecordsWithInstrumentType() {
-        // Arrange
-        Payload payload1 = new Payload(BigDecimal.valueOf(100), Currency.USD);
-        Payload payload2 = new Payload(BigDecimal.valueOf(200), Currency.USD);
-        PriceRecord priceRecord1 = new PriceRecord("id1", "instrument1", "instId1", InstrumentType.STOCK, LocalDateTime.now(), payload1);
-        PriceRecord priceRecord2 = new PriceRecord("id2", "instrument2", "instId2", InstrumentType.STOCK, LocalDateTime.now(), payload2);
-        instrumentPriceService.updateLatestPrice("batch123", priceRecord1);
-        instrumentPriceService.updateLatestPrice("batch123", priceRecord2);
+        UpdatePriceRecordRequest updateRequest1 = new UpdatePriceRecordRequest.Builder()
+                .setId(1)
+                .setInstrument("instrument1")
+                .setInstrumentType(InstrumentType.STOCK)
+                .setValue(BigDecimal.valueOf(100))
+                .setCurrency(Currency.USD)
+                .setRequestTime(LocalDateTime.now())
+                .build();
 
-        // Act
-        List<PriceRecord> results = instrumentPriceService.getPriceRecordsWithInstrumentType(InstrumentType.STOCK);
+        UpdatePriceRecordRequest updateRequest2 = new UpdatePriceRecordRequest.Builder()
+                .setId(2)
+                .setInstrument("instrument2")
+                .setInstrumentType(InstrumentType.STOCK)
+                .setValue(BigDecimal.valueOf(200))
+                .setCurrency(Currency.USD)
+                .setRequestTime(LocalDateTime.now())
+                .build();
 
-        // Assert
-        assertEquals(2, results.size());
-        assertTrue(results.contains(priceRecord1));
-        assertTrue(results.contains(priceRecord2));
+        instrumentPriceService.clearAllPrices();
+
+        instrumentPriceService.updateLatestPrice("batch123", updateRequest1);
+        instrumentPriceService.updateLatestPrice("batch123", updateRequest2);
+
+        List<PriceRecord> results1 = instrumentPriceService.getPriceRecordsWithInstrumentType(InstrumentType.STOCK);
+        List<PriceRecord> results2 = instrumentPriceService.getPriceRecordsWithInstrumentType(InstrumentType.BOND);
+
+        assertEquals(2, results1.size());
+        assertEquals(0, results2.size());
+
+        assertTrue(results1.stream().anyMatch(priceRecord -> priceRecord.getInstrument().equals(updateRequest1.getInstrument())));
+        assertTrue(results1.stream().anyMatch(priceRecord -> priceRecord.getInstrument().equals(updateRequest2.getInstrument())));
     }
-
 
     @Test
     void testGetPriceRecordsWithDuration() {
-        // Arrange
         LocalDateTime now = LocalDateTime.now();
-        LocalDateTime pastTime = now.minusHours(2);
-        PriceRecord recentRecord = new PriceRecord("id1", "instrument1", "instId1", InstrumentType.STOCK, now, new Payload(BigDecimal.valueOf(100), Currency.USD));
-        PriceRecord oldRecord = new PriceRecord("id2", "instrument2", "instId2", InstrumentType.BOND, pastTime, new Payload(BigDecimal.valueOf(200), Currency.USD));
+        LocalDateTime pastTime1 = now.minusHours(2);
+        LocalDateTime pastTime2 = now.minusHours(4);
 
-        // Clear the map before test
+        UpdatePriceRecordRequest recentRequest = new UpdatePriceRecordRequest.Builder()
+                .setId(1)
+                .setInstrument("instrument1")
+                .setInstrumentType(InstrumentType.STOCK)
+                .setValue(BigDecimal.valueOf(100))
+                .setCurrency(Currency.USD)
+                .setRequestTime(pastTime1)
+                .build();
+
+        UpdatePriceRecordRequest oldRequest = new UpdatePriceRecordRequest.Builder()
+                .setId(2)
+                .setInstrument("instrument2")
+                .setInstrumentType(InstrumentType.BOND)
+                .setValue(BigDecimal.valueOf(200))
+                .setCurrency(Currency.USD)
+                .setRequestTime(pastTime2)
+                .build();
+
         InstrumentPriceService.latestPrices.clear();
 
-        // Add records to the service
-        instrumentPriceService.updateLatestPrice("batch123", recentRecord);
-        instrumentPriceService.updateLatestPrice("batch123", oldRecord);
+        instrumentPriceService.updateLatestPrice("batch123", recentRequest);
+        instrumentPriceService.updateLatestPrice("batch123", oldRequest);
 
-        Duration duration = Duration.ofHours(1); // Set the duration for filtering
+        Duration duration1 = Duration.ofHours(1);
+        Duration duration2 = Duration.ofHours(3);
+        Duration duration3 = Duration.ofHours(5);
 
-        // Act
-        GetPriceRecordsListResponse response = instrumentPriceService.getPriceRecordsWithDuration(duration);
+        GetPriceRecordsListResponse response1 = instrumentPriceService.getPriceRecordsWithDuration(duration1);
+        GetPriceRecordsListResponse response2 = instrumentPriceService.getPriceRecordsWithDuration(duration2);
+        GetPriceRecordsListResponse response3 = instrumentPriceService.getPriceRecordsWithDuration(duration3);
 
-        // Assert
-        assertNotNull(response);
-        assertEquals(1, response.priceRecordList().size());
-        assertTrue(response.priceRecordList().contains(recentRecord));
+        assertNotNull(response1);
+        assertNotNull(response2);
+        assertNotNull(response3);
+
+        assertEquals(0, response1.priceRecordList().size());
+        assertEquals(1, response2.priceRecordList().size());
+        assertEquals(2, response3.priceRecordList().size());
+
+        assertTrue(response2.priceRecordList().stream().anyMatch(priceRecord -> priceRecord.getInstrument().equals(recentRequest.getInstrument())));
+        assertTrue(response3.priceRecordList().stream().anyMatch(priceRecord -> priceRecord.getInstrument().equals(oldRequest.getInstrument())));
+
     }
+
 
     @Test
     void testClearAllPrices() {
-        // Arrange
-        Payload payload = new Payload(BigDecimal.valueOf(100), Currency.USD);
-        PriceRecord priceRecord = new PriceRecord("id1", "instrument1", "instId1", InstrumentType.STOCK, LocalDateTime.now(), payload);
-        instrumentPriceService.updateLatestPrice("batch123", priceRecord);
+        UpdatePriceRecordRequest updateRequest = new UpdatePriceRecordRequest.Builder()
+                .setId(1)
+                .setInstrument("instrument1")
+                .setInstrumentType(InstrumentType.STOCK)
+                .setValue(BigDecimal.valueOf(100))
+                .setCurrency(Currency.USD)
+                .setRequestTime(LocalDateTime.now())
+                .build();
 
-        // Act
+        instrumentPriceService.updateLatestPrice("batch123", updateRequest);
         instrumentPriceService.clearAllPrices();
 
-        // Assert
         assertTrue(InstrumentPriceService.latestPrices.isEmpty());
     }
 
     @Test
     void testClearPriceForInstrumentId() {
-        // Arrange
-        Payload payload = new Payload(BigDecimal.valueOf(100), Currency.USD);
-        PriceRecord priceRecord = new PriceRecord("id1", "instrument1", "instId1", InstrumentType.STOCK, LocalDateTime.now(), payload);
-        instrumentPriceService.updateLatestPrice("batch123", priceRecord);
+        UpdatePriceRecordRequest updateRequest1 = new UpdatePriceRecordRequest.Builder()
+                .setId(1)
+                .setInstrument("Silver")
+                .setInstrumentType(InstrumentType.COMMODITIES)
+                .setValue(BigDecimal.valueOf(100))
+                .setCurrency(Currency.USD)
+                .setRequestTime(LocalDateTime.now())
+                .build();
 
-        // Act
-        instrumentPriceService.clearPriceForInstrumentId("instId1");
+        UpdatePriceRecordRequest updateRequest2 = new UpdatePriceRecordRequest.Builder()
+                .setId(1)
+                .setInstrument("Gold")
+                .setInstrumentType(InstrumentType.COMMODITIES)
+                .setValue(BigDecimal.valueOf(100))
+                .setCurrency(Currency.USD)
+                .setRequestTime(LocalDateTime.now())
+                .build();
 
-        // Assert
-        assertNull(InstrumentPriceService.latestPrices.get(InstrumentType.STOCK).get("instId1"));
+        instrumentPriceService.updateLatestPrice("batch123", updateRequest1);
+        instrumentPriceService.updateLatestPrice("batch123", updateRequest2);
+
+        instrumentPriceService.clearPriceForInstrumentId("SILVER");
+
+        assertNull(InstrumentPriceService.latestPrices.get(InstrumentType.STOCK).get("SILVER"));
+        assertNull(InstrumentPriceService.latestPrices.get(InstrumentType.STOCK).get("GOLD"));
     }
+
 }

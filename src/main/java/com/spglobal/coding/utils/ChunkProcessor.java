@@ -5,6 +5,7 @@ import com.spglobal.coding.producers.dto.ChunkProcessRequest;
 import com.spglobal.coding.services.InstrumentPriceService;
 import com.spglobal.coding.services.dto.ChunkProcessResponse;
 import com.spglobal.coding.services.model.PriceRecord;
+import com.spglobal.coding.utils.dto.UpdatePriceRecordRequest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -36,17 +37,17 @@ public class ChunkProcessor {
      * Returns a CompletableFuture that completes when all chunks are processed, providing a BatchProcessResponse.
      *
      * @param batchId    the unique identifier of the batch being processed.
-     * @param allRecords the list of PriceRecords to be processed.
+     * @param allRequests the list of PriceRecords to be processed.
      * @return a CompletableFuture containing a BatchProcessResponse with the status of the batch and any failed records.
-     * @throws NullPointerException if batchId or allRecords is null.
+     * @throws NullPointerException if batchId or allRequests is null.
      */
-    public CompletableFuture<BatchProcessResponse> processBatch(String batchId, List<PriceRecord> allRecords) {
-        if (batchId == null || allRecords == null) {
+    public CompletableFuture<BatchProcessResponse> processBatch(String batchId, List<UpdatePriceRecordRequest> allRequests) {
+        if (batchId == null || allRequests == null) {
             throw new NullPointerException("batchId/Records cannot be null");
         }
 
         // Split records into chunks
-        List<List<PriceRecord>> chunks = partitionBatchIntoChunks(allRecords);
+        List<List<UpdatePriceRecordRequest>> chunks = partitionBatchIntoChunks(allRequests);
         logger.info("Partitioned batch with batchId {} into {} chunks", batchId, chunks.size());
 
         // Create a list of CompletableFuture for processing each chunk
@@ -62,7 +63,7 @@ public class ChunkProcessor {
         return CompletableFuture.allOf(futures.toArray(new CompletableFuture[0]))
                 .thenApply(result -> {
                     // Combine all failed records from futures
-                    List<PriceRecord> allFailedRecords = futures.stream()
+                    List<UpdatePriceRecordRequest> allFailedRecords = futures.stream()
                             .map(CompletableFuture::join)
                             .flatMap(response -> response.failedRecords().stream())
                             .toList();
@@ -80,13 +81,12 @@ public class ChunkProcessor {
      * @param chunk   the list of PriceRecords in this chunk.
      * @return a ChunkProcessResponse indicating the success or failure of the chunk processing, along with any failed records.
      */
-    private ChunkProcessResponse processChunk(String batchId, List<PriceRecord> chunk) {
+    private ChunkProcessResponse processChunk(String batchId, List<UpdatePriceRecordRequest> chunk) {
         logger.info("Processing chunk for batchId {} with {} records", batchId, chunk.size());
         try {
             // Process the chunk and return the response
             return instrumentPriceService.processChunk(new ChunkProcessRequest(batchId, chunk));
         } catch (Exception e) {
-            logger.error("Exception occurred while processing chunk for batchId {}: {}", batchId, e.getMessage());
             return new ChunkProcessResponse(false, chunk);
         }
     }
@@ -97,8 +97,8 @@ public class ChunkProcessor {
      * @param list the full list of PriceRecords to be partitioned.
      * @return a list of lists, where each inner list is a chunk of PriceRecords.
      */
-    private List<List<PriceRecord>> partitionBatchIntoChunks(List<PriceRecord> list) {
-        List<List<PriceRecord>> chunks = new ArrayList<>();
+    private List<List<UpdatePriceRecordRequest>> partitionBatchIntoChunks(List<UpdatePriceRecordRequest> list) {
+        List<List<UpdatePriceRecordRequest>> chunks = new ArrayList<>();
         for (int i = 0; i < list.size(); i += CHUNK_SIZE) { // Create sublist for each chunk
             chunks.add(list.subList(i, Math.min(i + CHUNK_SIZE, list.size())));
         }

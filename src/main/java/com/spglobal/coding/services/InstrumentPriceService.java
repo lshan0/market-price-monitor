@@ -3,7 +3,9 @@ package com.spglobal.coding.services;
 import com.spglobal.coding.consumers.dto.GetPriceRecordsListResponse;
 import com.spglobal.coding.producers.dto.ChunkProcessRequest;
 import com.spglobal.coding.services.dto.ChunkProcessResponse;
+import com.spglobal.coding.services.model.Payload;
 import com.spglobal.coding.services.model.PriceRecord;
+import com.spglobal.coding.utils.dto.UpdatePriceRecordRequest;
 import com.spglobal.coding.utils.exceptions.RecordProcessingException;
 import com.spglobal.coding.utils.enums.InstrumentType;
 import org.slf4j.Logger;
@@ -29,25 +31,27 @@ public class InstrumentPriceService implements PriceService {
     // First we're mapping InstrumentType with their values and then their Instrument ID's with their Records.
     protected static final Map<InstrumentType, Map<String, PriceRecord>> latestPrices = new ConcurrentHashMap<>();
 
+    private static final int HISTORY_SIZE = 10;
+
     /**
      * Processes a chunk of price records from a batch and updates the latest prices for each instrument.
      * Any records that fail to process are logged and returned in the response.
      *
-     * @param chunkProcessRequest Request containing the batch ID and list of price records to be processed.
+     * @param chunkProcessRequest Request containing the batch ID and list of update record requests to be processed.
      * @return A response indicating whether the chunk processing was successful and containing any failed records.
      */
     @Override
     public ChunkProcessResponse processChunk(ChunkProcessRequest chunkProcessRequest) {
-        List<PriceRecord> failedRecords = new ArrayList<>();
+        List<UpdatePriceRecordRequest> failedRecords = new ArrayList<>();
 
         logger.info("Processing Started for {} records in chunk from batchId {}", chunkProcessRequest.priceRecordList().size(), chunkProcessRequest.batchId());
-        for (PriceRecord priceRecord : chunkProcessRequest.priceRecordList()) {
+        for (UpdatePriceRecordRequest updateRequest : chunkProcessRequest.priceRecordList()) {
             try {
-                updateLatestPrice(chunkProcessRequest.batchId(), priceRecord); // Process each record in the batch
+                updateLatestPrice(chunkProcessRequest.batchId(), updateRequest); // Process each record in the batch
             } catch (RecordProcessingException e) {
-                failedRecords.add(priceRecord); // Add the failed process to a list for future assessment
-                logger.error("Failed to process record for instrumentId: {} in batchId: {}. Error: {}",
-                        priceRecord.getInstrumentId(), chunkProcessRequest.batchId(), e.getMessage());
+                failedRecords.add(updateRequest); // Add the failed process to a list for future assessment
+                logger.error("Failed to process record for instrument: {} in batchId: {}. Error: {}",
+                        updateRequest.getInstrument(), chunkProcessRequest.batchId(), e.getMessage());
             }
         }
 
@@ -59,31 +63,82 @@ public class InstrumentPriceService implements PriceService {
      * Updates the latest price for a given price record if it is more recent than the current record.
      *
      * @param batchId     The batch ID for which the price record is being updated.
-     * @param priceRecord The new price record to be updated.
+     * @param updateRequest The new price record to be updated.
      * @throws RecordProcessingException If the price record is invalid.
      */
     @Override
-    public void updateLatestPrice(String batchId, PriceRecord priceRecord) {
-        if (priceRecord.getAsOf() == null || priceRecord.getInstrumentId() == null || priceRecord.getPayload() == null) {
-            logger.error("Received invalid Price Record in batchId {}", batchId);
-            throw new RecordProcessingException("Invalid PriceRecord");
+    public void updateLatestPrice(String batchId, UpdatePriceRecordRequest updateRequest) {
+        if (updateRequest.getRequestTime() == null || updateRequest.getInstrument() == null) {
+            String errorMessage = String.format("Received invalid PriceRecord in batchId %s. RequestTime or Instrument is null.", batchId);
+            logger.error(errorMessage);
+            throw new RecordProcessingException(errorMessage);
         }
 
-        // Ensure the map for the instrument type exists and get the map of price records by instrument ID.
-        InstrumentType instrumentType = priceRecord.getInstrumentType();
+        InstrumentType instrumentType = updateRequest.getInstrumentType();
         Map<String, PriceRecord> priceMap = latestPrices.computeIfAbsent(instrumentType, k -> new ConcurrentHashMap<>());
 
-        // Fetch the current latest price for the given Instrument ID
-        priceMap.compute(priceRecord.getInstrumentId(), (id, currentRecord) -> {
-            if (currentRecord == null || priceRecord.getAsOf().isAfter(currentRecord.getAsOf())) {
-                logger.info("New record for Instrument ID: {} is more recent. Adding/Updating record.", priceRecord.getInstrumentId());
-                return priceRecord;
+        // Generate instrument ID
+        String instrumentId = generateIdFromInstrument(updateRequest.getInstrument());
+
+        priceMap.compute(instrumentId, (id, currentRecord) -> {
+            Payload newPayload = new Payload(
+                    updateRequest.getId(),
+                    updateRequest.getValue(),
+                    updateRequest.getCurrency(),
+                    updateRequest.getRequestTime()
+            );
+
+            if (currentRecord == null) {
+                logger.info("Creating new PriceRecord for Instrument ID: {} in batchId {}", instrumentId, batchId);
+                return new PriceRecord(updateRequest.getInstrument(), instrumentId, instrumentType, updateRequest.getRequestTime(), newPayload.getValue(), newPayload);
             } else {
-                logger.info("Current record for Instrument ID: {} is more recent than the new record in batchId: {}. Current time: {}, New time: {}",
-                        priceRecord.getInstrumentId(), batchId, currentRecord.getAsOf(), priceRecord.getAsOf());
-                return currentRecord;
+                logger.info("Updating existing PriceRecord for Instrument ID: {} in batchId {}", instrumentId, batchId);
+                try {
+                    addRequestToPayloadHistory(currentRecord, newPayload);
+                    return currentRecord;
+                } catch (RecordProcessingException e) {
+                    logger.error("Failed to update PriceRecord for Instrument ID: {} due to outdated request. Error: {}", instrumentId, e.getMessage());
+                    throw new RecordProcessingException("Outdated request for Instrument ID: " + instrumentId);
+                }
             }
         });
+    }
+
+    /**
+     * Adds a new payload to the price record's payload history and updates the record if the new payload
+     * is the most recent.
+     * @param priceRecord the {@link PriceRecord} to update with the new payload
+     * @param newPayload the new {@link Payload} to add to the history and possibly update the record
+     * @throws RecordProcessingException if the payload history is null
+     */
+    private void addRequestToPayloadHistory(PriceRecord priceRecord, Payload newPayload) {
+        SortedSet<Payload> payloadHistory = priceRecord.getPayloadHistory();
+
+        // Validate if the history exists and is not empty
+        if (payloadHistory == null) {
+            logger.info("Unexpected Exception: payload history is null for Instrument ID: {}", priceRecord.getInstrumentId());
+            throw new RecordProcessingException("Payload history is null for an existing record");
+        }
+
+        // Check if the new payload is the most recent
+        if (newPayload.getAsOf().isAfter(priceRecord.getLastUpdateTime())) {
+            logger.info("New payload is the latest for Instrument ID: {}. Updating record and adding to history.", priceRecord.getInstrumentId());
+
+            // Update the price record with the new latest payload's timestamp and value
+            priceRecord.setLastUpdateTime(newPayload.getAsOf());
+            priceRecord.setLatestPrice(newPayload.getValue());
+        }
+
+        payloadHistory.add(newPayload);
+
+        // Ensure the history size is maintained (remove the oldest entry if it exceeds the limit)
+        if (payloadHistory.size() > HISTORY_SIZE) {
+            Payload removedPayload = payloadHistory.last();
+            payloadHistory.remove(removedPayload); // Remove the oldest payload
+            logger.debug("Payload history exceeded limit, removing oldest payload for Instrument ID: {}: {}", priceRecord.getInstrumentId(), removedPayload.getId());
+        }
+
+        logger.info("Successfully updated PriceRecord for Instrument ID: {}", priceRecord.getInstrumentId());
     }
 
     @Override
@@ -142,7 +197,7 @@ public class InstrumentPriceService implements PriceService {
 
         final List<PriceRecord> priceRecordList = latestPrices.values().stream()
                 .flatMap(priceMap -> priceMap.values().stream())  // Stream all PriceRecord values
-                .filter(priceRecord -> priceRecord.getAsOf().isAfter(threshold))  // Filter by duration
+                .filter(priceRecord -> priceRecord.getLastUpdateTime().isAfter(threshold))  // Filter by duration
                 .toList();
 
         return new GetPriceRecordsListResponse(priceRecordList);
@@ -162,5 +217,14 @@ public class InstrumentPriceService implements PriceService {
         for (Map<String, PriceRecord> priceMap : latestPrices.values()) {
             priceMap.remove(instrumentId);
         }
+    }
+
+    // Helper method to Generate a consistent instrument ID based on the instrument name
+    static String generateIdFromInstrument(final String instrumentName) {
+        return instrumentName.replaceAll("\\s+", "_").toUpperCase();
+    }
+
+    public static Map<InstrumentType, Map<String, PriceRecord>> getLatestPrices() {
+        return latestPrices;
     }
 }
