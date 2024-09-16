@@ -134,11 +134,6 @@ public class InstrumentProducer implements Producer {
                 throw new IllegalStateException(BATCH_ID_ERROR_MESSAGE_PREFIX + batchId + BATCH_NOT_FOUND_ERROR_MESSAGE_SUFFIX);
             }
 
-            // Check if the batch status is IN_PROGRESS
-            if (batch.getStatus() != BatchStatus.IN_PROGRESS) {
-                throw new IllegalStateException(BATCH_ID_ERROR_MESSAGE_PREFIX + batchId + " cannot be cancelled as it is not in progress.");
-            }
-
             // Update the status to CANCELLED and return the updated batch
             batch.setStatus(BatchStatus.CANCELLED);
             logger.info("Cancelled batch with ID: {}", batchId);
@@ -151,5 +146,8 @@ public class InstrumentProducer implements Producer {
     // Public method for testing purposes
     public PriceRecordUpdateRequestBatch getBatchById(String batchId) {
         return batchMap.get(batchId);
+    }
+    public static Map<String, PriceRecordUpdateRequestBatch> getBatchMap() {
+        return batchMap;
     }
 }
