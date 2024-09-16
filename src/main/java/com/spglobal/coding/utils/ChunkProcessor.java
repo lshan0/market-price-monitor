@@ -4,7 +4,6 @@ import com.spglobal.coding.producers.dto.BatchProcessResponse;
 import com.spglobal.coding.producers.dto.ChunkProcessRequest;
 import com.spglobal.coding.services.InstrumentPriceService;
 import com.spglobal.coding.services.dto.ChunkProcessResponse;
-import com.spglobal.coding.services.model.PriceRecord;
 import com.spglobal.coding.utils.dto.UpdatePriceRecordRequest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -16,7 +15,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 /**
- * The ChunkProcessor class handles the processing of large batches of PriceRecords by splitting them into smaller chunks
+ * The ChunkProcessor class handles the processing of large batches of Update Requests by splitting them into smaller chunks
  * and processing them asynchronously using a thread pool.
  */
 public class ChunkProcessor {
@@ -33,11 +32,11 @@ public class ChunkProcessor {
     }
 
     /**
-     * Processes a large batch of PriceRecords by splitting them into smaller chunks and processing them asynchronously.
+     * Processes a large batch of UpdateRequests by splitting them into smaller chunks and processing them asynchronously.
      * Returns a CompletableFuture that completes when all chunks are processed, providing a BatchProcessResponse.
      *
      * @param batchId    the unique identifier of the batch being processed.
-     * @param allRequests the list of PriceRecords to be processed.
+     * @param allRequests the list of UpdateRequests to be processed.
      * @return a CompletableFuture containing a BatchProcessResponse with the status of the batch and any failed records.
      * @throws NullPointerException if batchId or allRequests is null.
      */
@@ -63,26 +62,26 @@ public class ChunkProcessor {
         return CompletableFuture.allOf(futures.toArray(new CompletableFuture[0]))
                 .thenApply(result -> {
                     // Combine all failed records from futures
-                    List<UpdatePriceRecordRequest> allFailedRecords = futures.stream()
+                    List<UpdatePriceRecordRequest> allFailedRequests = futures.stream()
                             .map(CompletableFuture::join)
-                            .flatMap(response -> response.failedRecords().stream())
+                            .flatMap(response -> response.failedRequests().stream())
                             .toList();
 
                     // Return the BatchProcessResponse with the combined failed records
-                    logger.info("Batch processing for batchId {} completed with {} failed records", batchId, allFailedRecords.size());
-                    return new BatchProcessResponse(allFailedRecords.isEmpty(), allFailedRecords);
+                    logger.info("Batch processing for batchId {} completed with {} failed records", batchId, allFailedRequests.size());
+                    return new BatchProcessResponse(allFailedRequests.isEmpty(), allFailedRequests);
                 });
     }
 
     /**
-     * Processes a single chunk of PriceRecords for the given batchId.
+     * Processes a single chunk of UpdateRequests for the given batchId.
      *
      * @param batchId the unique identifier of the batch to which the chunk belongs.
-     * @param chunk   the list of PriceRecords in this chunk.
-     * @return a ChunkProcessResponse indicating the success or failure of the chunk processing, along with any failed records.
+     * @param chunk   the list of UpdateRequests in this chunk.
+     * @return a ChunkProcessResponse indicating the success or failure of the chunk processing, along with any failed requests.
      */
     private ChunkProcessResponse processChunk(String batchId, List<UpdatePriceRecordRequest> chunk) {
-        logger.info("Processing chunk for batchId {} with {} records", batchId, chunk.size());
+        logger.info("Processing chunk for batchId {} with {} requests", batchId, chunk.size());
         try {
             // Process the chunk and return the response
             return instrumentPriceService.processChunk(new ChunkProcessRequest(batchId, chunk));
@@ -92,10 +91,10 @@ public class ChunkProcessor {
     }
 
     /**
-     * Partitions a large list of PriceRecords into smaller chunks of a predefined size.
+     * Partitions a large list of UpdateRequests into smaller chunks of a predefined size.
      *
      * @param list the full list of PriceRecords to be partitioned.
-     * @return a list of lists, where each inner list is a chunk of PriceRecords.
+     * @return a list of lists, where each inner list is a chunk of UpdateRequests.
      */
     private List<List<UpdatePriceRecordRequest>> partitionBatchIntoChunks(List<UpdatePriceRecordRequest> list) {
         List<List<UpdatePriceRecordRequest>> chunks = new ArrayList<>();

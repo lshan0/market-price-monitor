@@ -6,7 +6,7 @@ import com.spglobal.coding.services.dto.ChunkProcessResponse;
 import com.spglobal.coding.services.model.PriceRecord;
 import com.spglobal.coding.utils.dto.UpdatePriceRecordRequest;
 import com.spglobal.coding.utils.enums.Currency;
-import com.spglobal.coding.utils.exceptions.RecordProcessingException;
+import com.spglobal.coding.utils.exceptions.UpdateRequestProcessingException;
 import com.spglobal.coding.utils.enums.InstrumentType;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -135,7 +135,7 @@ class InstrumentServiceTest {
                 .setRequestTime(null)
                 .build();
 
-        assertThrows(RecordProcessingException.class, () -> {
+        assertThrows(UpdateRequestProcessingException.class, () -> {
             instrumentPriceService.updateLatestPrice("batch123", updateRequest);
         });
     }

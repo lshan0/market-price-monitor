@@ -5,21 +5,30 @@ import com.spglobal.coding.utils.enums.InstrumentType;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.Comparator;
-import java.util.Queue;
 import java.util.SortedSet;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentSkipListSet;
-import java.util.concurrent.PriorityBlockingQueue;
 
 /**
  * Represents a record of a financial instrument's price at a specific point in time.
  * <p>
- * This class holds details about the price record, including a unique identifier,
- * the name and unique ID of the instrument, the type of instrument, the timestamp of the record,
- * and the payload containing the value and currency of the price.
+ * This class holds details about a price record, including:
+ * <ul>
+ *     <li>A unique identifier for the price record ({@code id}).</li>
+ *     <li>The name of the financial instrument ({@code instrument}).</li>
+ *     <li>The unique identifier for the instrument ({@code instrumentId}).</li>
+ *     <li>The type of instrument ({@code instrumentType}).</li>
+ *     <li>The last time the price was updated ({@code lastUpdateTime}).</li>
+ *     <li>The latest recorded price of the instrument ({@code latestPrice}).</li>
+ *     <li>A history of the price's payload, which consists of the value and currency ({@code payloadHistory}).</li>
+ * </ul>
  * <p>
- * The class is designed to be immutable and uses a constructor to initialize all fields.
- * It is recommended to use the Builder pattern for future extensibility.
+ * The class is immutable except for the fields {@code lastUpdateTime} and {@code latestPrice},
+ * which can be updated using setter methods to reflect new price data. The price history is maintained using
+ * a {@link ConcurrentSkipListSet}, ordered by the timestamp of each payload in reverse chronological order.
+ * The history keeps track of the last 10 payloads.
+ * <p>
+ * It is recommended to use the Builder pattern to extend this class in the future for more flexible object construction.
  */
 public class PriceRecord {
     private final String id;                // Unique ID for each PriceRecord
@@ -29,8 +38,6 @@ public class PriceRecord {
     private  LocalDateTime lastUpdateTime;
     private  BigDecimal latestPrice;
     private final SortedSet<Payload> payloadHistory;
-
-    private static final int HISTORY_SIZE = 10;
 
     public PriceRecord(String instrument,
                        String instrumentId,

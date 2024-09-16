@@ -34,13 +34,13 @@ public class Main {
         List<UpdatePriceRecordRequest> updatePriceRecordRequestList = UpdatePriceRecordRequestFactory.generateUpdatePriceRecordRequestBatch();
         try {
             String batchId = producer.startNewBatch();
-            producer.uploadRecords(batchId, updatePriceRecordRequestList);
+            producer.uploadRequests(batchId, updatePriceRecordRequestList);
             producer.completeBatch(batchId);
         } catch (Exception e) {
             logger.info("Unexpected error while producer generation: {}", e.getMessage());
         }
 
-        Thread.sleep(7000);
+        Thread.sleep(9000);
 
         GetPriceRecordsListResponse getPriceRecordsListResponse1 = consumer.getPriceRecordsByInstrumentType(InstrumentType.STOCK);
         GetPriceRecordsListResponse getPriceRecordsListResponse2 = consumer.getPriceRecordsByInstrumentType(InstrumentType.COMMODITIES);

@@ -6,7 +6,7 @@ import com.spglobal.coding.services.dto.ChunkProcessResponse;
 import com.spglobal.coding.services.model.Payload;
 import com.spglobal.coding.services.model.PriceRecord;
 import com.spglobal.coding.utils.dto.UpdatePriceRecordRequest;
-import com.spglobal.coding.utils.exceptions.RecordProcessingException;
+import com.spglobal.coding.utils.exceptions.UpdateRequestProcessingException;
 import com.spglobal.coding.utils.enums.InstrumentType;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -34,29 +34,29 @@ public class InstrumentPriceService implements PriceService {
     private static final int HISTORY_SIZE = 10;
 
     /**
-     * Processes a chunk of price records from a batch and updates the latest prices for each instrument.
-     * Any records that fail to process are logged and returned in the response.
+     * Processes a chunk of update requests from a batch and updates the latest prices for each instrument.
+     * Any requests that fail to process are logged and returned in the response.
      *
-     * @param chunkProcessRequest Request containing the batch ID and list of update record requests to be processed.
-     * @return A response indicating whether the chunk processing was successful and containing any failed records.
+     * @param chunkProcessRequest Request containing the batch ID and list of update requests to be processed.
+     * @return A response indicating whether the chunk processing was successful and containing any failed request.
      */
     @Override
     public ChunkProcessResponse processChunk(ChunkProcessRequest chunkProcessRequest) {
-        List<UpdatePriceRecordRequest> failedRecords = new ArrayList<>();
+        List<UpdatePriceRecordRequest> failedRequests = new ArrayList<>();
 
-        logger.info("Processing Started for {} records in chunk from batchId {}", chunkProcessRequest.priceRecordList().size(), chunkProcessRequest.batchId());
-        for (UpdatePriceRecordRequest updateRequest : chunkProcessRequest.priceRecordList()) {
+        logger.info("Processing Started for {} records in chunk from batchId {}", chunkProcessRequest.updateRequestList().size(), chunkProcessRequest.batchId());
+        for (UpdatePriceRecordRequest updateRequest : chunkProcessRequest.updateRequestList()) {
             try {
                 updateLatestPrice(chunkProcessRequest.batchId(), updateRequest); // Process each record in the batch
-            } catch (RecordProcessingException e) {
-                failedRecords.add(updateRequest); // Add the failed process to a list for future assessment
+            } catch (UpdateRequestProcessingException e) {
+                failedRequests.add(updateRequest); // Add the failed process to a list for future assessment
                 logger.error("Failed to process record for instrument: {} in batchId: {}. Error: {}",
                         updateRequest.getInstrument(), chunkProcessRequest.batchId(), e.getMessage());
             }
         }
 
-        logger.info("Chunk processing for batchId {} completed with {} failed records.", chunkProcessRequest.batchId(), failedRecords.size());
-        return new ChunkProcessResponse(failedRecords.isEmpty(), failedRecords);
+        logger.info("Chunk processing for batchId {} completed with {} failed requests.", chunkProcessRequest.batchId(), failedRequests.size());
+        return new ChunkProcessResponse(failedRequests.isEmpty(), failedRequests);
     }
 
     /**
@@ -64,14 +64,14 @@ public class InstrumentPriceService implements PriceService {
      *
      * @param batchId     The batch ID for which the price record is being updated.
      * @param updateRequest The new price record to be updated.
-     * @throws RecordProcessingException If the price record is invalid.
+     * @throws UpdateRequestProcessingException If the price record is invalid.
      */
     @Override
     public void updateLatestPrice(String batchId, UpdatePriceRecordRequest updateRequest) {
         if (updateRequest.getRequestTime() == null || updateRequest.getInstrument() == null) {
-            String errorMessage = String.format("Received invalid PriceRecord in batchId %s. RequestTime or Instrument is null.", batchId);
+            String errorMessage = String.format("Received invalid UpdateRequest in batchId %s. RequestTime or Instrument is null.", batchId);
             logger.error(errorMessage);
-            throw new RecordProcessingException(errorMessage);
+            throw new UpdateRequestProcessingException(errorMessage);
         }
 
         InstrumentType instrumentType = updateRequest.getInstrumentType();
@@ -96,9 +96,9 @@ public class InstrumentPriceService implements PriceService {
                 try {
                     addRequestToPayloadHistory(currentRecord, newPayload);
                     return currentRecord;
-                } catch (RecordProcessingException e) {
+                } catch (UpdateRequestProcessingException e) {
                     logger.error("Failed to update PriceRecord for Instrument ID: {} due to outdated request. Error: {}", instrumentId, e.getMessage());
-                    throw new RecordProcessingException("Outdated request for Instrument ID: " + instrumentId);
+                    throw new UpdateRequestProcessingException("Outdated request for Instrument ID: " + instrumentId);
                 }
             }
         });
@@ -109,7 +109,7 @@ public class InstrumentPriceService implements PriceService {
      * is the most recent.
      * @param priceRecord the {@link PriceRecord} to update with the new payload
      * @param newPayload the new {@link Payload} to add to the history and possibly update the record
-     * @throws RecordProcessingException if the payload history is null
+     * @throws UpdateRequestProcessingException if the payload history is null
      */
     private void addRequestToPayloadHistory(PriceRecord priceRecord, Payload newPayload) {
         SortedSet<Payload> payloadHistory = priceRecord.getPayloadHistory();
@@ -117,7 +117,7 @@ public class InstrumentPriceService implements PriceService {
         // Validate if the history exists and is not empty
         if (payloadHistory == null) {
             logger.info("Unexpected Exception: payload history is null for Instrument ID: {}", priceRecord.getInstrumentId());
-            throw new RecordProcessingException("Payload history is null for an existing record");
+            throw new UpdateRequestProcessingException("Payload history is null for an existing record");
         }
 
         // Check if the new payload is the most recent
@@ -141,6 +141,17 @@ public class InstrumentPriceService implements PriceService {
         logger.info("Successfully updated PriceRecord for Instrument ID: {}", priceRecord.getInstrumentId());
     }
 
+    /**
+     * Retrieves a PriceRecord by its unique record ID and instrument type.
+     * <p>
+     * If the instrument type is null, the method searches through all available instrument types.
+     * If the instrument type is specified, it only searches within the map for that type.
+     *
+     * @param recordId      The unique ID of the PriceRecord to be retrieved. Must not be null.
+     * @param instrumentType The type of the financial instrument. If null, all instrument types will be searched.
+     * @return An Optional containing the PriceRecord if found, or an empty Optional if not found.
+     * @throws NullPointerException if recordId is null.
+     */
     @Override
     public Optional<PriceRecord> getPriceRecordWithRecordId(String recordId, InstrumentType instrumentType) {
         Objects.requireNonNull(recordId, "recordId cannot be null");
@@ -163,6 +174,17 @@ public class InstrumentPriceService implements PriceService {
         return getPriceRecordWithRecordId(recordId, null);
     }
 
+    /**
+     * Retrieves a PriceRecord by its unique instrument ID and instrument type.
+     * <p>
+     * If the instrument type is null, the method searches through all available instrument types.
+     * If the instrument type is specified, it only searches within the map for that type.
+     *
+     * @param instrumentId   The unique ID of the financial instrument. Must not be null.
+     * @param instrumentType The type of the financial instrument. If null, all instrument types will be searched.
+     * @return An Optional containing the PriceRecord if found, or an empty Optional if not found.
+     * @throws NullPointerException if instrumentId is null.
+     */
     @Override
     public Optional<PriceRecord> getPriceRecordWithInstrumentId(String instrumentId, InstrumentType instrumentType) {
         Objects.requireNonNull(instrumentId, "instrumentId cannot be null");
@@ -183,6 +205,12 @@ public class InstrumentPriceService implements PriceService {
         return getPriceRecordWithInstrumentId(instrumentId, null);
     }
 
+    /**
+     * Retrieves all PriceRecords of a specified instrument type.
+     *
+     * @param instrumentType The type of the financial instrument.
+     * @return A list of PriceRecords associated with the given instrument type. If no records are found, an empty list is returned.
+     */
     @Override
     public List<PriceRecord> getPriceRecordsWithInstrumentType(InstrumentType instrumentType) {
         return Optional.ofNullable(latestPrices.get(instrumentType))
@@ -190,6 +218,14 @@ public class InstrumentPriceService implements PriceService {
                 .orElse(List.of()); // Return an empty list if the priceMap is null
     }
 
+    /**
+     * Retrieves a list of PriceRecords that have been updated within the specified duration.
+     * <p>
+     * The duration is subtracted from the current time, and only PriceRecords updated after that point are included.
+     *
+     * @param duration The time duration to filter the PriceRecords (e.g., past 24 hours).
+     * @return A GetPriceRecordsListResponse containing a list of PriceRecords updated within the given duration.
+     */
     @Override
     public GetPriceRecordsListResponse getPriceRecordsWithDuration(Duration duration) {
         // Get the threshold date-time, which is the current time minus the duration
@@ -203,12 +239,22 @@ public class InstrumentPriceService implements PriceService {
         return new GetPriceRecordsListResponse(priceRecordList);
     }
 
+    /**
+     * Clears all stored price records from memory.
+     * <p>
+     * This operation will remove all price records for all instrument types.
+     */
     @Override
     public void clearAllPrices() {
         logger.info("Clearing all prices from memory.");
         latestPrices.clear();
     }
 
+    /**
+     * Clears the price record for a specific instrument ID across all instrument types.
+     *
+     * @param instrumentId The unique ID of the instrument whose price record needs to be cleared.
+     */
     @Override
     public void clearPriceForInstrumentId(String instrumentId) {
         logger.info("Clearing price for instrumentId: {}", instrumentId);

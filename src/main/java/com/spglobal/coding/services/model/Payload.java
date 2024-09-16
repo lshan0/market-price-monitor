@@ -6,7 +6,14 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 /**
- * Represents the payload of a financial instrument's price record, consisting of the value and currency.
+ * Represents the payload of a financial instrument's price record
+ * <p>
+ * This class encapsulates the financial details associated with a specific price record, including:
+ * - A unique identifier ({@code id}) for the payload.
+ * - The monetary value of the instrument ({@code value}).
+ * - The currency in which the value is denominated ({@code currency}).
+ * - The time at which the price was recorded ({@code asOf}).
+ * </p>
  */
 public class Payload {
     private final int id;

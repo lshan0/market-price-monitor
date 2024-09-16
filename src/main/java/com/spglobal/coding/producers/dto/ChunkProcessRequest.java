@@ -6,5 +6,5 @@ import com.spglobal.coding.utils.dto.UpdatePriceRecordRequest;
 import java.util.List;
 
 public record ChunkProcessRequest(String batchId,
-                                  List<UpdatePriceRecordRequest> priceRecordList)
+                                  List<UpdatePriceRecordRequest> updateRequestList)
 { }
