@@ -129,10 +129,13 @@ public class InstrumentProducer implements Producer {
 
     @Override
     public void cancelBatch(String batchId) {
-        // Use compute to handle batch retrieval, status check, and update atomically
         batchMap.compute(batchId, (id, batch) -> {
             if (batch == null) {
                 throw new IllegalStateException(BATCH_ID_ERROR_MESSAGE_PREFIX + batchId + BATCH_NOT_FOUND_ERROR_MESSAGE_SUFFIX);
+            }
+
+            if (batch.getStatus() == BatchStatus.COMPLETED || batch.getStatus() == BatchStatus.PROCESSED_WITH_ERRORS) {
+                throw new IllegalStateException(BATCH_ID_ERROR_MESSAGE_PREFIX + batchId + " cannot be cancelled as it is already completed/processed.");
             }
 
             // Update the status to CANCELLED and return the updated batch

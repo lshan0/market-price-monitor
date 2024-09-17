@@ -67,7 +67,7 @@ class InstrumentServiceTest {
 
         // Assert
         assertTrue(response.isSuccess());
-        assertTrue(response.failedRecords().isEmpty());
+        assertTrue(response.failedRequests().isEmpty());
         assertNotNull(InstrumentPriceService.latestPrices.get(InstrumentType.STOCK));
         assertNotNull(InstrumentPriceService.latestPrices.get(InstrumentType.BOND));
     }
@@ -92,8 +92,8 @@ class InstrumentServiceTest {
 
         // Assert
         assertFalse(response.isSuccess());
-        assertEquals(1, response.failedRecords().size());
-        assertEquals(invalidRequest, response.failedRecords().get(0));
+        assertEquals(1, response.failedRequests().size());
+        assertEquals(invalidRequest, response.failedRequests().get(0));
     }
 
 

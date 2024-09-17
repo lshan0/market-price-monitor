@@ -96,7 +96,7 @@ public class ChunkProcessor {
      * @param list the full list of PriceRecords to be partitioned.
      * @return a list of lists, where each inner list is a chunk of UpdateRequests.
      */
-    private List<List<UpdatePriceRecordRequest>> partitionBatchIntoChunks(List<UpdatePriceRecordRequest> list) {
+     List<List<UpdatePriceRecordRequest>> partitionBatchIntoChunks(List<UpdatePriceRecordRequest> list) {
         List<List<UpdatePriceRecordRequest>> chunks = new ArrayList<>();
         for (int i = 0; i < list.size(); i += CHUNK_SIZE) { // Create sublist for each chunk
             chunks.add(list.subList(i, Math.min(i + CHUNK_SIZE, list.size())));

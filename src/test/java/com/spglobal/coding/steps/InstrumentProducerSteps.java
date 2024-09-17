@@ -75,7 +75,7 @@ public class InstrumentProducerSteps {
                     .build();
         }).toList();
 
-        producer.uploadRecords(batchId, requests);
+        producer.uploadRequests(batchId, requests);
     }
 
     @Then("the requests should be uploaded successfully")
@@ -99,7 +99,7 @@ public class InstrumentProducerSteps {
         }).toList();
 
         try {
-            producer.uploadRecords(batchId, requests);
+            producer.uploadRequests(batchId, requests);
             fail("Expected an exception to be thrown");
         } catch (IllegalStateException e) {
             caughtException = e;
@@ -150,7 +150,7 @@ public class InstrumentProducerSteps {
                 .setInstrumentType(InstrumentType.COMMODITIES)
                 .build();
 
-        producer.uploadRecords(batchId, List.of(request));
+        producer.uploadRequests(batchId, List.of(request));
     }
 
     @Given("a batch is started and invalid records have been uploaded")
@@ -172,7 +172,7 @@ public class InstrumentProducerSteps {
                 .setInstrument(null)
                 .build();
 
-        producer.uploadRecords(batchId, List.of(request1, request2));
+        producer.uploadRequests(batchId, List.of(request1, request2));
     }
 
     @When("I try to complete that batch")
