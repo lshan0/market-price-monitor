@@ -57,7 +57,7 @@ class InstrumentProducerTest {
         // Assert
         PriceRecordUpdateRequestBatch batch = instrumentProducer.getBatchById(batchId);
         assertNotNull(batch);
-        assertEquals(BatchStatus.IN_PROGRESS, batch.getStatus());
+        assertEquals(BatchStatus.UPLOADING_REQUESTS, batch.getStatus());
         assertEquals(5, batch.getRequests().size());
     }
 
@@ -185,7 +185,7 @@ class InstrumentProducerTest {
         IllegalStateException exception = assertThrows(IllegalStateException.class, () -> {
             instrumentProducer.cancelBatch(batchId);
         });
-        assertTrue(exception.getMessage().contains("cannot be cancelled as it is already completed/processed."));
+        assertTrue(exception.getMessage().contains("cannot be cancelled as it is already completed,processed or cancelled."));
     }
 
     // Helper method to create price records using PriceRecordFactory

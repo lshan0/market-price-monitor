@@ -7,9 +7,15 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 /**
- * DTO for updating a price record.
+ * DTO representing a request to update a price record.
  * <p>
- * This class is immutable and uses the Builder pattern for construction.
+ * This class is immutable, meaning once an instance is created, its state cannot be modified.
+ * It follows the Builder pattern to allow flexible and readable construction of instances.
+ * </p>
+ * <p>
+ * The {@code UpdatePriceRecordRequest} contains information about an instrument's price update,
+ * including the instrument's ID, instrument's name, its type, the value of the price,
+ * the currency in which the price is expressed, and the time when the request was made.
  * </p>
  */
 public class UpdatePriceRecordRequest {

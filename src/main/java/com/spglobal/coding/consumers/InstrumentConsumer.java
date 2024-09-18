@@ -2,7 +2,7 @@ package com.spglobal.coding.consumers;
 
 import com.spglobal.coding.consumers.dto.GetPriceRecordResponse;
 import com.spglobal.coding.consumers.dto.GetPriceRecordsListResponse;
-import com.spglobal.coding.services.InstrumentPriceService;
+import com.spglobal.coding.services.PriceService;
 import com.spglobal.coding.services.model.PriceRecord;
 import com.spglobal.coding.utils.enums.InstrumentType;
 import org.slf4j.Logger;
@@ -23,10 +23,10 @@ public class InstrumentConsumer implements Consumer {
 
     private static final Logger logger = LoggerFactory.getLogger(InstrumentConsumer.class);
 
-    private final InstrumentPriceService instrumentPriceService;
+    private final PriceService priceService;
 
-    public InstrumentConsumer(InstrumentPriceService instrumentPriceService) {
-        this.instrumentPriceService = instrumentPriceService;
+    public InstrumentConsumer(PriceService priceService) {
+        this.priceService = priceService;
     }
 
     /**
@@ -39,7 +39,7 @@ public class InstrumentConsumer implements Consumer {
     @Override
     public GetPriceRecordResponse getPriceRecordById(String id, InstrumentType instrumentType) {
         logger.info("Fetching PriceRecord for recordId: {} with InstrumentType: {}", id, instrumentType);
-        Optional<PriceRecord> priceRecord = instrumentPriceService.getPriceRecordWithRecordId(id, instrumentType);
+        Optional<PriceRecord> priceRecord = priceService.getPriceRecordWithRecordId(id, instrumentType);
 
         if (priceRecord.isEmpty()) {
             logger.warn("No PriceRecord found for recordId: {}", id);
@@ -65,7 +65,7 @@ public class InstrumentConsumer implements Consumer {
     @Override
     public GetPriceRecordResponse getPriceRecordByInstrumentId(String instrumentId, InstrumentType instrumentType) {
         logger.info("Fetching PriceRecord for instrumentId: {} with InstrumentType: {}", instrumentId, instrumentType);
-        Optional<PriceRecord> priceRecord = instrumentPriceService.getPriceRecordWithInstrumentId(instrumentId, instrumentType);
+        Optional<PriceRecord> priceRecord = priceService.getPriceRecordWithInstrumentId(instrumentId, instrumentType);
 
         if (priceRecord.isEmpty()) {
             logger.warn("No PriceRecord found for instrumentId: {}", instrumentId);
@@ -90,7 +90,7 @@ public class InstrumentConsumer implements Consumer {
     @Override
     public GetPriceRecordsListResponse getPriceRecordsByInstrumentType(InstrumentType instrumentType) {
         logger.info("Fetching all PriceRecords for InstrumentType: {}", instrumentType);
-        List<PriceRecord> priceRecords = instrumentPriceService.getPriceRecordsWithInstrumentType(instrumentType);
+        List<PriceRecord> priceRecords = priceService.getPriceRecordsWithInstrumentType(instrumentType);
 
         if (priceRecords.isEmpty()) {
             logger.warn("No PriceRecords found for InstrumentType: {}", instrumentType);
@@ -109,6 +109,6 @@ public class InstrumentConsumer implements Consumer {
     @Override
     public GetPriceRecordsListResponse getPriceRecordsInLastDuration(Duration duration) {
         logger.info("Fetching PriceRecords within the last {} duration", duration);
-        return instrumentPriceService.getPriceRecordsWithDuration(duration);
+        return priceService.getPriceRecordsWithDuration(duration);
     }
 }

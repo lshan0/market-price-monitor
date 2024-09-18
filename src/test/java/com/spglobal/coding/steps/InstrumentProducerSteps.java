@@ -82,7 +82,7 @@ public class InstrumentProducerSteps {
     public void the_requests_should_be_uploaded_successfully() {
         PriceRecordUpdateRequestBatch batch = batchMap.get(batchId);
         assertNotNull(batch);
-        assertEquals(BatchStatus.IN_PROGRESS, batch.getStatus());
+        assertEquals(BatchStatus.UPLOADING_REQUESTS, batch.getStatus());
     }
 
     @When("I try to upload these requests to batch {string}")
@@ -194,6 +194,16 @@ public class InstrumentProducerSteps {
     @When("I cancel that batch")
     public void i_cancel_that_batch() {
         producer.cancelBatch(batchId);
+    }
+
+    @When("I try to cancel that batch")
+    public void i_try_to_cancel_that_batch() {
+        try{
+            producer.cancelBatch(batchId);
+            fail("Expected an exception to be thrown");
+        } catch (IllegalStateException e) {
+            caughtException = e;
+        }
     }
 }
 

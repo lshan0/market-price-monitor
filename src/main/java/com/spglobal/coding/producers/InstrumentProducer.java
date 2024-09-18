@@ -74,11 +74,12 @@ public class InstrumentProducer implements Producer {
             if (batch == null) {
                 throw new IllegalStateException(BATCH_ID_ERROR_MESSAGE_PREFIX + batchId + BATCH_NOT_FOUND_ERROR_MESSAGE_SUFFIX);
             }
-            if (batch.getStatus() != BatchStatus.STARTED) {
-                throw new IllegalStateException(BATCH_ID_ERROR_MESSAGE_PREFIX + batchId + " is not active.");
+            if (batch.getStatus() != BatchStatus.STARTED && batch.getStatus() != BatchStatus.UPLOADING_REQUESTS) {
+                throw new IllegalStateException(BATCH_ID_ERROR_MESSAGE_PREFIX + batchId + " is not active or already in progress.");
             }
+
             batch.addAll(requests);
-            batch.setStatus(BatchStatus.IN_PROGRESS);
+            batch.setStatus(BatchStatus.UPLOADING_REQUESTS);
 
             logger.info("Uploaded {} records to batch with ID: {}", requests.size(), batchId);
             return batch;
@@ -97,13 +98,14 @@ public class InstrumentProducer implements Producer {
             if (batch == null) {
                 throw new IllegalArgumentException(BATCH_ID_ERROR_MESSAGE_PREFIX + batchId + BATCH_NOT_FOUND_ERROR_MESSAGE_SUFFIX);
             }
-            if (batch.getStatus() != BatchStatus.IN_PROGRESS) {
-                throw new IllegalStateException(BATCH_ID_ERROR_MESSAGE_PREFIX + batchId + " cannot be processed. Batch is not in progress.");
+            if (batch.getStatus() != BatchStatus.UPLOADING_REQUESTS) {
+                throw new IllegalStateException(BATCH_ID_ERROR_MESSAGE_PREFIX + batchId + " cannot be processed. Uploading requests is not in progress.");
             }
             if (batch.getRequests().isEmpty()) {
                 throw new IllegalStateException(BATCH_ID_ERROR_MESSAGE_PREFIX + batchId + " does not contain valid update requests.");
             }
 
+            batch.setStatus(BatchStatus.PROCESSING);
             List<UpdatePriceRecordRequest> requests = batch.getRequests();
             CompletableFuture<BatchProcessResponse> batchProcessResponse = chunkProcessor.processBatch(batchId, requests);
 
@@ -127,6 +129,14 @@ public class InstrumentProducer implements Producer {
         });
     }
 
+    /**
+     * Cancels the batch with the given batch ID if it is in a cancellable state.
+     *
+     * <p>The requests associated with the cancelled batch are moved to the {@code failedRequestsMap},
+     * and the cancellation action is logged for auditing purposes.
+     *
+     * @param batchId the unique identifier of the batch to cancel. Must not be {@code null}.
+     */
     @Override
     public void cancelBatch(String batchId) {
         batchMap.compute(batchId, (id, batch) -> {
@@ -134,8 +144,8 @@ public class InstrumentProducer implements Producer {
                 throw new IllegalStateException(BATCH_ID_ERROR_MESSAGE_PREFIX + batchId + BATCH_NOT_FOUND_ERROR_MESSAGE_SUFFIX);
             }
 
-            if (batch.getStatus() == BatchStatus.COMPLETED || batch.getStatus() == BatchStatus.PROCESSED_WITH_ERRORS) {
-                throw new IllegalStateException(BATCH_ID_ERROR_MESSAGE_PREFIX + batchId + " cannot be cancelled as it is already completed/processed.");
+            if (batch.getStatus() != BatchStatus.STARTED && batch.getStatus() != BatchStatus.UPLOADING_REQUESTS) {
+                throw new IllegalStateException(BATCH_ID_ERROR_MESSAGE_PREFIX + batchId + " cannot be cancelled as it is already completed,processed or cancelled.");
             }
 
             // Update the status to CANCELLED and return the updated batch

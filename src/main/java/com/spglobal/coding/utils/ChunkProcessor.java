@@ -2,7 +2,7 @@ package com.spglobal.coding.utils;
 
 import com.spglobal.coding.producers.dto.BatchProcessResponse;
 import com.spglobal.coding.producers.dto.ChunkProcessRequest;
-import com.spglobal.coding.services.InstrumentPriceService;
+import com.spglobal.coding.services.PriceService;
 import com.spglobal.coding.services.dto.ChunkProcessResponse;
 import com.spglobal.coding.utils.dto.UpdatePriceRecordRequest;
 import org.slf4j.Logger;
@@ -23,10 +23,10 @@ public class ChunkProcessor {
     private static final Logger logger = LoggerFactory.getLogger(ChunkProcessor.class);
     private static final int CHUNK_SIZE = 1000;
     private final ExecutorService executorService;
-    private final InstrumentPriceService instrumentPriceService;
+    private final PriceService priceService;
 
-    public ChunkProcessor(InstrumentPriceService instrumentPriceService) {
-        this.instrumentPriceService = instrumentPriceService;
+    public ChunkProcessor(PriceService priceService) {
+        this.priceService = priceService;
         this.executorService = Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors());
         logger.info("ChunkProcessor initialized with a fixed thread pool of size: {}", Runtime.getRuntime().availableProcessors());
     }
@@ -84,7 +84,7 @@ public class ChunkProcessor {
         logger.info("Processing chunk for batchId {} with {} requests", batchId, chunk.size());
         try {
             // Process the chunk and return the response
-            return instrumentPriceService.processChunk(new ChunkProcessRequest(batchId, chunk));
+            return priceService.processChunk(new ChunkProcessRequest(batchId, chunk));
         } catch (Exception e) {
             return new ChunkProcessResponse(false, chunk);
         }
