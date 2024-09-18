@@ -40,7 +40,7 @@ public class Main {
             logger.info("Unexpected error while producer generation: {}", e.getMessage());
         }
 
-        Thread.sleep(9000);
+        Thread.sleep(2000);
 
         GetPriceRecordsListResponse getPriceRecordsListResponse1 = consumer.getPriceRecordsByInstrumentType(InstrumentType.STOCK);
         GetPriceRecordsListResponse getPriceRecordsListResponse2 = consumer.getPriceRecordsByInstrumentType(InstrumentType.COMMODITIES);

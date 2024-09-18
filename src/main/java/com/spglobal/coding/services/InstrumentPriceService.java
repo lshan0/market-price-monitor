@@ -192,6 +192,7 @@ public class InstrumentPriceService implements PriceService {
         if (instrumentType == null) { // If instrumentType is not present, search all maps for the PriceRecord
             return latestPrices.values().stream()
                     .map(priceMap -> priceMap.get(instrumentId))
+                    .filter(Objects::nonNull)
                     .findFirst(); // Return the first record if any
 
         }
