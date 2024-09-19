@@ -29,7 +29,7 @@ class PriceRecordFactoryTest {
         String instrumentId = UpdatePriceRecordRequestFactory.getRandomInstrumentId();
         assertNotNull(instrumentId);
         assertFalse(instrumentId.isEmpty(), "Instrument ID should not be empty.");
-        assertTrue(instrumentId.equals(instrumentId.toUpperCase()), "Instrument ID should be in uppercase.");
+        assertEquals(instrumentId, instrumentId.toUpperCase(), "Instrument ID should be in uppercase.");
     }
 
     @Test

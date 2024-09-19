@@ -1,16 +1,20 @@
 package com.spglobal.coding.producers;
 
+import com.spglobal.coding.producers.dto.BatchCancellationResponse;
+import com.spglobal.coding.producers.dto.BatchCompletionResponse;
+import com.spglobal.coding.producers.dto.BatchStartResponse;
+import com.spglobal.coding.producers.dto.BatchUploadResponse;
 import com.spglobal.coding.utils.dto.UpdatePriceRecordRequest;
 
 import java.util.List;
 
 public interface Producer {
 
-    String startNewBatch();
+    BatchStartResponse startNewBatch();
 
-    void uploadRequests(String batchId, List<UpdatePriceRecordRequest> requests);
+    BatchUploadResponse uploadRequests(String batchId, List<UpdatePriceRecordRequest> requests);
 
-    void completeBatch(String batchId);
+    BatchCompletionResponse completeBatch(String batchId);
 
-    void cancelBatch(String batchId);
+    BatchCancellationResponse cancelBatch(String batchId);
 }

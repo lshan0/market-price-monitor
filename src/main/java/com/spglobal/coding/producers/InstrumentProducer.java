@@ -1,6 +1,10 @@
 package com.spglobal.coding.producers;
 
-import com.spglobal.coding.producers.dto.BatchProcessResponse;
+import com.spglobal.coding.producers.dto.BatchCancellationResponse;
+import com.spglobal.coding.producers.dto.BatchCompletionResponse;
+import com.spglobal.coding.producers.dto.BatchStartResponse;
+import com.spglobal.coding.producers.dto.BatchUploadResponse;
+import com.spglobal.coding.utils.dto.BatchProcessResponse;
 import com.spglobal.coding.producers.model.PriceRecordUpdateRequestBatch;
 import com.spglobal.coding.utils.ChunkProcessor;
 import com.spglobal.coding.utils.dto.UpdatePriceRecordRequest;
@@ -46,7 +50,7 @@ public class InstrumentProducer implements Producer {
      * @return the batch ID of the newly started batch
      */
     @Override
-    public String startNewBatch() {
+    public BatchStartResponse startNewBatch() {
         final String batchId = UUID.randomUUID().toString();
 
         // Check if the batchId already exists before adding a new one
@@ -58,7 +62,7 @@ public class InstrumentProducer implements Producer {
             return new PriceRecordUpdateRequestBatch();
         });
 
-        return batchId;
+        return new BatchStartResponse(batchId);
     }
 
     /**
@@ -69,8 +73,8 @@ public class InstrumentProducer implements Producer {
      * @param requests the list of PriceRecord objects to be added to the batch
      */
     @Override
-    public void uploadRequests(String batchId, List<UpdatePriceRecordRequest> requests) {
-        batchMap.compute(batchId, (id, batch) -> {
+    public BatchUploadResponse uploadRequests(String batchId, List<UpdatePriceRecordRequest> requests) {
+        PriceRecordUpdateRequestBatch updatedBatch = batchMap.compute(batchId, (id, batch) -> {
             if (batch == null) {
                 throw new IllegalStateException(BATCH_ID_ERROR_MESSAGE_PREFIX + batchId + BATCH_NOT_FOUND_ERROR_MESSAGE_SUFFIX);
             }
@@ -84,6 +88,8 @@ public class InstrumentProducer implements Producer {
             logger.info("Uploaded {} records to batch with ID: {}", requests.size(), batchId);
             return batch;
         });
+
+        return new BatchUploadResponse(batchId, updatedBatch.getStatus(), requests.size());
     }
 
     /**
@@ -93,7 +99,7 @@ public class InstrumentProducer implements Producer {
      * @param batchId the ID of the batch to complete
      */
     @Override
-    public void completeBatch(String batchId) {
+    public BatchCompletionResponse completeBatch(String batchId) {
         batchMap.compute(batchId, (id, batch) -> {
             if (batch == null) {
                 throw new IllegalArgumentException(BATCH_ID_ERROR_MESSAGE_PREFIX + batchId + BATCH_NOT_FOUND_ERROR_MESSAGE_SUFFIX);
@@ -127,6 +133,8 @@ public class InstrumentProducer implements Producer {
 
             return batch;
         });
+
+        return new BatchCompletionResponse(batchId, "Batch processing has started.");
     }
 
     /**
@@ -138,14 +146,14 @@ public class InstrumentProducer implements Producer {
      * @param batchId the unique identifier of the batch to cancel. Must not be {@code null}.
      */
     @Override
-    public void cancelBatch(String batchId) {
+    public BatchCancellationResponse cancelBatch(String batchId) {
         batchMap.compute(batchId, (id, batch) -> {
             if (batch == null) {
                 throw new IllegalStateException(BATCH_ID_ERROR_MESSAGE_PREFIX + batchId + BATCH_NOT_FOUND_ERROR_MESSAGE_SUFFIX);
             }
 
             if (batch.getStatus() != BatchStatus.STARTED && batch.getStatus() != BatchStatus.UPLOADING_REQUESTS) {
-                throw new IllegalStateException(BATCH_ID_ERROR_MESSAGE_PREFIX + batchId + " cannot be cancelled as it is already completed,processed or cancelled.");
+                throw new IllegalStateException(BATCH_ID_ERROR_MESSAGE_PREFIX + batchId + " cannot be cancelled as it is not in a cancellable state.");
             }
 
             // Update the status to CANCELLED and return the updated batch
@@ -157,6 +165,8 @@ public class InstrumentProducer implements Producer {
             // Return the updated batch
             return batch;
         });
+
+        return new BatchCancellationResponse(batchId, failedRequestsMap.getOrDefault(batchId, Collections.emptyList()));
     }
 
     // Public method for testing purposes

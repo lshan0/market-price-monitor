@@ -78,4 +78,4 @@ Feature: InstrumentPriceService Tests
         When I complete the batch
         Then I wait for 1 second
         And I try to cancel that batch
-        Then an exception should be thrown where the message contains "cannot be cancelled as it is already completed,processed or cancelled."
+        Then an exception should be thrown where the message contains "cannot be cancelled as it is not in a cancellable state."

@@ -1,9 +1,8 @@
-package com.spglobal.coding.producers.dto;
-
-import com.spglobal.coding.utils.dto.UpdatePriceRecordRequest;
+package com.spglobal.coding.utils.dto;
 
 import java.util.List;
 
 public record ChunkProcessRequest(String batchId,
                                   List<UpdatePriceRecordRequest> updateRequestList)
-{ }
+{
+}

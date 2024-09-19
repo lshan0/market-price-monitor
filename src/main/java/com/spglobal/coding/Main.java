@@ -4,6 +4,9 @@ import com.spglobal.coding.consumers.InstrumentConsumer;
 import com.spglobal.coding.consumers.dto.GetPriceRecordResponse;
 import com.spglobal.coding.consumers.dto.GetPriceRecordsListResponse;
 import com.spglobal.coding.producers.InstrumentProducer;
+import com.spglobal.coding.producers.dto.BatchCompletionResponse;
+import com.spglobal.coding.producers.dto.BatchStartResponse;
+import com.spglobal.coding.producers.dto.BatchUploadResponse;
 import com.spglobal.coding.services.InstrumentPriceService;
 import com.spglobal.coding.services.model.PriceRecord;
 import com.spglobal.coding.utils.ChunkProcessor;
@@ -33,9 +36,9 @@ public class Main {
 
         List<UpdatePriceRecordRequest> updatePriceRecordRequestList = UpdatePriceRecordRequestFactory.generateUpdatePriceRecordRequestBatch();
         try {
-            String batchId = producer.startNewBatch();
-            producer.uploadRequests(batchId, updatePriceRecordRequestList);
-            producer.completeBatch(batchId);
+            BatchStartResponse startResponse = producer.startNewBatch();
+            BatchUploadResponse uploadResponse = producer.uploadRequests(startResponse.batchId(), updatePriceRecordRequestList);
+            BatchCompletionResponse completionResponse = producer.completeBatch(startResponse.batchId());
         } catch (Exception e) {
             logger.info("Unexpected error while producer generation: {}", e.getMessage());
         }

@@ -41,7 +41,7 @@ public class InstrumentProducerSteps {
 
     @When("I start a new batch")
     public void i_start_a_new_batch() {
-        batchId = producer.startNewBatch();
+        batchId = producer.startNewBatch().batchId();
     }
 
     @Then("a batch with random UUID should be created")
@@ -140,7 +140,7 @@ public class InstrumentProducerSteps {
 
     @Given("a batch with ID is started and valid records have been uploaded")
     public void a_valid_batch_is_in_progress() {
-        batchId = producer.startNewBatch();
+        batchId = producer.startNewBatch().batchId();
         UpdatePriceRecordRequest request = new UpdatePriceRecordRequest.Builder()
                 .setRequestTime(LocalDateTime.now())
                 .setCurrency(Currency.INR)
@@ -155,7 +155,7 @@ public class InstrumentProducerSteps {
 
     @Given("a batch is started and invalid records have been uploaded")
     public void an_invalid_batch_is_in_progress() {
-        batchId = producer.startNewBatch();
+        batchId = producer.startNewBatch().batchId();
         UpdatePriceRecordRequest request1 = new UpdatePriceRecordRequest.Builder()
                 .setRequestTime(LocalDateTime.now())
                 .setCurrency(Currency.INR)

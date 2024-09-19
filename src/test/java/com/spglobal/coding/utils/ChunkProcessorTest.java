@@ -1,6 +1,6 @@
 package com.spglobal.coding.utils;
 
-import com.spglobal.coding.producers.dto.BatchProcessResponse;
+import com.spglobal.coding.utils.dto.BatchProcessResponse;
 import com.spglobal.coding.services.InstrumentPriceService;
 import com.spglobal.coding.services.dto.ChunkProcessResponse;
 import com.spglobal.coding.utils.dto.UpdatePriceRecordRequest;

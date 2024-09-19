@@ -1,7 +1,7 @@
 package com.spglobal.coding.services;
 
 import com.spglobal.coding.consumers.dto.GetPriceRecordsListResponse;
-import com.spglobal.coding.producers.dto.ChunkProcessRequest;
+import com.spglobal.coding.utils.dto.ChunkProcessRequest;
 import com.spglobal.coding.services.dto.ChunkProcessResponse;
 import com.spglobal.coding.services.model.PriceRecord;
 import com.spglobal.coding.utils.dto.UpdatePriceRecordRequest;
